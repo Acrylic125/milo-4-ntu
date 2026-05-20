@@ -31,7 +31,7 @@ export function ProfileCard({
         <CardHeader className="pb-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              <CardTitle className="truncate">{profile.name}</CardTitle>
+              <CardTitle className="truncate font-sans">{profile.name}</CardTitle>
               <CardDescription className="line-clamp-2">
                 {profile.summary}
               </CardDescription>

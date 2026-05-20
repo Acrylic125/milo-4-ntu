@@ -100,7 +100,7 @@ export function ProfileDetail({ profileId }: ProfileDetailProps) {
                 </span>
               )}
             </div>
-            <h1 className="font-heading text-2xl font-medium tracking-tight">
+            <h1 className="font-sans text-2xl font-medium tracking-tight">
               {profile.name}
             </h1>
             <p className="text-xs/relaxed text-muted-foreground">
@@ -111,7 +111,7 @@ export function ProfileDetail({ profileId }: ProfileDetailProps) {
           <section className="grid gap-4 sm:grid-cols-2">
             <Card size="sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs">Contact</CardTitle>
+                <CardTitle className="text-xs font-sans">Contact</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-xs">
                 <p className="flex items-center gap-2">
@@ -132,7 +132,7 @@ export function ProfileDetail({ profileId }: ProfileDetailProps) {
 
             <Card size="sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs">Focus areas</CardTitle>
+                <CardTitle className="text-xs font-sans">Focus areas</CardTitle>
                 <CardDescription>Used for match ranking</CardDescription>
               </CardHeader>
               <CardContent>
@@ -158,7 +158,7 @@ export function ProfileDetail({ profileId }: ProfileDetailProps) {
 
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-heading text-sm font-medium">
+              <h2 className="font-sans text-sm font-medium">
                 Projects & links
               </h2>
               <span className="text-[10px] text-muted-foreground">
@@ -201,7 +201,7 @@ export function ProfileDetail({ profileId }: ProfileDetailProps) {
             <>
               <Separator />
               <section className="space-y-2">
-                <h2 className="font-heading text-sm font-medium">
+                <h2 className="font-sans text-sm font-medium">
                   Raw links input
                 </h2>
                 <pre className="overflow-x-auto border border-border bg-muted/30 p-3 text-[10px] whitespace-pre-wrap text-muted-foreground">

@@ -1,16 +1,35 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image"
 import { Flask, UsersThree } from "@phosphor-icons/react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { UserCircle } from "@phosphor-icons/react";
+import { getCurrentProfile } from "@/lib/profile-storage";
 
 type SiteHeaderProps = {
   className?: string;
 };
 
+
+
 export function SiteHeader({ className }: SiteHeaderProps) {
+  const [hasProfile, setHasProfile] = useState(false);
+
+  useEffect(() => {
+    const profile = getCurrentProfile();
+    const isValid =
+      profile &&
+      profile.email &&
+      profile.contact &&
+      profile.summary;
+
+    setHasProfile(!!profile);
+  }, []);
+
   return (
     <header
       className={cn(
@@ -24,13 +43,20 @@ export function SiteHeader({ className }: SiteHeaderProps) {
             <Flask className="size-4" weight="duotone" />
           </span>
           <div className="leading-tight">
-            <p className="font-heading text-sm font-medium tracking-tight">
-              Milo
+            <p className="font-sans text-sm font-medium tracking-tight">
+              [Milo***]
             </p>
             <p className="text-[10px] text-muted-foreground">
               Researchers × Founders
             </p>
           </div>
+          <div className="h-8 w-px bg-border" />
+          <Image
+              src="/ntupreneur_logo.png"
+              alt="Logo"
+              width={80}
+              height={32}
+              className="rounded=md"/>
         </Link>
 
         <nav className="flex items-center gap-2">
@@ -41,7 +67,16 @@ export function SiteHeader({ className }: SiteHeaderProps) {
             </Link>
           </Button>
           <Button size="sm" asChild>
-            <Link href="/onboard">Join network</Link>
+            <Link href={hasProfile ? "/profile/me" : "/onboard"}>
+              {hasProfile ? (
+                <>
+                  <UserCircle className="size-4" />
+                  My profile
+                </>
+              ) : (
+                "Join network"
+              )}
+            </Link>
           </Button>
         </nav>
       </div>

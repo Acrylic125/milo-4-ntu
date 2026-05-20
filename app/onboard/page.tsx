@@ -100,7 +100,7 @@ export default function OnboardPage() {
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
             Onboarding · Step {step} of 2
           </p>
-          <h1 className="font-heading text-2xl font-medium tracking-tight">
+          <h1 className="font-sans text-2xl font-medium tracking-tight">
             Join the Milo network
           </h1>
           <p className="text-xs/relaxed text-muted-foreground">
@@ -114,7 +114,7 @@ export default function OnboardPage() {
             {step === 1 ? (
               <>
                 <CardHeader>
-                  <CardTitle>Contact & links</CardTitle>
+                  <CardTitle className="font-sans">Contact & links</CardTitle>
                   <CardDescription>
                     Researchers and founders use this to follow up after a
                     match.
@@ -179,7 +179,7 @@ export default function OnboardPage() {
             ) : (
               <>
                 <CardHeader>
-                  <CardTitle>Profile summary</CardTitle>
+                  <CardTitle className="font-sans">Profile summary</CardTitle>
                   <CardDescription>
                     Describe your focus, what you are building or researching,
                     and who you want to meet.
