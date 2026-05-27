@@ -32,38 +32,11 @@ export const profiles = pgTable(
     email: text("email").notNull().unique(),
     contact: text("contact").notNull(),
 
-    linksRaw: text("links_raw").notNull().default(""),
-    links: jsonb("links")
-      .$type<ProfileLink[]>()
-      .notNull()
-      .default(sql`'[]'::jsonb`),
-
-    // Content fields that mirror the /embed payload in backend/app.py.
-    synopsis: text("synopsis").notNull().default(""),
-    opportunity: text("opportunity").notNull().default(""),
-    technology: text("technology").notNull().default(""),
-    applications: text("applications").notNull().default(""),
-
     role: profileRoleEnum("role").notNull().default("researcher"),
     tags: text("tags")
       .array()
       .notNull()
       .default(sql`ARRAY[]::text[]`),
-
-    // Embeddings returned from POST /embed.
-    embedding: vector("embedding", { dimensions: EMBEDDING_DIM }),
-    synopsisEmbedding: vector("synopsis_embedding", {
-      dimensions: EMBEDDING_DIM,
-    }),
-    opportunityEmbedding: vector("opportunity_embedding", {
-      dimensions: EMBEDDING_DIM,
-    }),
-    technologyEmbedding: vector("technology_embedding", {
-      dimensions: EMBEDDING_DIM,
-    }),
-    applicationsEmbedding: vector("applications_embedding", {
-      dimensions: EMBEDDING_DIM,
-    }),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -75,6 +48,25 @@ export const profiles = pgTable(
   (table) => [
     index("profiles_email_idx").on(table.email),
     index("profiles_role_idx").on(table.role),
+  ]
+);
+
+export const patents = pgTable(
+  "patents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    profileId: uuid("profile_id").references(() => profiles.id),
+    title: text("title").notNull(),
+    links: text("links").notNull(),
+    embedding: vector("embedding", { dimensions: EMBEDDING_DIM }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
     // HNSW + cosine distance for nearest-neighbour search on the combined embedding.
     index("profiles_embedding_idx").using(
       "hnsw",

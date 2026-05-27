@@ -3,10 +3,9 @@
 import { GraduationCap, Rocket } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { ProfileRole } from "@/lib/profile";
 
 type RoleBadgeProps = {
-  role: ProfileRole;
+  role: "researcher" | "founder";
   className?: string;
 };
 

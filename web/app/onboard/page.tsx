@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Link2 } from "lucide-react";
 
 import { SiteHeader } from "@/components/site-header";
@@ -26,17 +27,25 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  NTU_TECH_OFFER_PREFIX,
   onboardStepOneSchema,
+  parseLinksRaw,
   type OnboardFormValues,
 } from "@/lib/onboard-schema";
 import { onboardResolver } from "@/lib/onboard-resolver";
 import { saveCurrentProfile } from "@/lib/profile-storage";
+import { assumeUser } from "@/lib/auth-actions";
+import { useTRPC } from "@/trpc/client";
 
 type Step = 1 | 2;
 
 export default function OnboardPage() {
   const router = useRouter();
+  const trpc = useTRPC();
   const [step, setStep] = useState<Step>(1);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const submitMutation = useMutation(trpc.onboard.submit.mutationOptions());
 
   const {
     register,
@@ -44,7 +53,7 @@ export default function OnboardPage() {
     getValues,
     setError,
     clearErrors,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<OnboardFormValues>({
     resolver: onboardResolver,
     defaultValues: {
@@ -75,15 +84,44 @@ export default function OnboardPage() {
     setStep(2);
   }
 
-  function onSubmit(values: OnboardFormValues) {
+  async function onSubmit(values: OnboardFormValues) {
+    setSubmitError(null);
+
+    const links = parseLinksRaw(values.linksRaw);
+
+    let result: { profileId: string; patentCount: number };
+    try {
+      result = await submitMutation.mutateAsync({
+        email: values.email,
+        contact: values.contact,
+        links,
+      });
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while submitting. Please try again."
+      );
+      return;
+    }
+
     saveCurrentProfile({
       email: values.email,
       contact: values.contact,
       linksRaw: values.linksRaw,
       summary: values.summary,
     });
+
+    try {
+      await assumeUser(result.profileId);
+    } catch {
+      // Cookie failure shouldn't block redirect; user can re-assume from header.
+    }
+
     router.replace("/");
   }
+
+  const isSubmitting = submitMutation.isPending;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -104,8 +142,8 @@ export default function OnboardPage() {
             Join the Milo network
           </h1>
           <p className="text-xs/relaxed text-muted-foreground">
-            Share how to reach you and where your work lives online. We will
-            scrape links to auto-generate summaries in a later release.
+            Share how to reach you and which NTU tech-portal listings represent
+            your work. We will scrape each link and embed it for matching.
           </p>
         </div>
 
@@ -149,21 +187,22 @@ export default function OnboardPage() {
                     </Field>
                     <Field data-invalid={!!errors.linksRaw}>
                       <FieldLabel htmlFor="links">
-                        Projects, research & personal links
+                        NTU tech-portal listings
                       </FieldLabel>
                       <Textarea
                         id="links"
                         aria-invalid={!!errors.linksRaw}
-                        placeholder={
-                          "One link per line, e.g.\nhttps://scholar.google.com/...\nhttps://github.com/you\nhttps://yourstartup.com"
-                        }
+                        placeholder={`One link per line, e.g.\n${NTU_TECH_OFFER_PREFIX}/foveal-machine-vision`}
                         className="min-h-32"
                         {...register("linksRaw")}
                       />
                       <FieldDescription className="flex items-center gap-1">
                         <Link2 className="size-3" />
-                        Paste Google Scholar, lab pages, portfolios, or startup
-                        sites.
+                        Only links starting with{" "}
+                        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
+                          {NTU_TECH_OFFER_PREFIX}
+                        </code>{" "}
+                        are accepted.
                       </FieldDescription>
                       <FieldError errors={[errors.linksRaw]} />
                     </Field>
@@ -197,11 +236,19 @@ export default function OnboardPage() {
                         {...register("summary")}
                       />
                       <FieldDescription>
-                        This powers match ranking on the discover page until
-                        link scraping is available.
+                        This powers match ranking on the discover page alongside
+                        your scraped NTU listings.
                       </FieldDescription>
                       <FieldError errors={[errors.summary]} />
                     </Field>
+                    {submitError ? (
+                      <p
+                        role="alert"
+                        className="text-xs text-destructive"
+                      >
+                        {submitError}
+                      </p>
+                    ) : null}
                   </FieldGroup>
                 </CardContent>
                 <CardFooter className="justify-between border-t-0 pt-0">
@@ -209,12 +256,13 @@ export default function OnboardPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setStep(1)}
+                    disabled={isSubmitting}
                   >
                     <ArrowLeft />
                     Back
                   </Button>
                   <Button type="submit" disabled={isSubmitting}>
-                    Join network
+                    {isSubmitting ? "Joining…" : "Join network"}
                   </Button>
                 </CardFooter>
               </>

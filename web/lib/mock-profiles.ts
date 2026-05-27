@@ -1,4 +1,14 @@
-import type { Profile } from "@/lib/profile";
+export type Profile = {
+  id: string;
+  name: string;
+  email: string;
+  contact: string;
+  linksRaw: string;
+  links: { label: string; url: string }[];
+  summary: string;
+  role: "researcher" | "founder";
+  tags: string[];
+};
 
 export const MOCK_PROFILES: Profile[] = [
   {
@@ -15,7 +25,7 @@ export const MOCK_PROFILES: Profile[] = [
       },
       { label: "GitHub", url: "https://github.com/priyasharma-lab" },
       { label: "Personal site", url: "https://priyasharma.dev" },
-      { label: "IP Query", url: "priya.sharma@ntu.edu.sg" }
+      { label: "IP Query", url: "priya.sharma@ntu.edu.sg" },
     ],
     summary:
       "ML researcher focused on efficient transformers and on-device inference for robotics. Open to collaborating with founders building perception stacks for warehouse automation.",
@@ -72,7 +82,7 @@ export const MOCK_PROFILES: Profile[] = [
         label: "arXiv",
         url: "https://arxiv.org/search/?query=elena+voss+biotech",
       },
-      { label: "IP Query", url: "elena.voss@ethz.ch" }
+      { label: "IP Query", url: "elena.voss@ethz.ch" },
     ],
     summary:
       "Synthetic biology researcher working on programmable microbes for carbon capture. Interested in deeptech founders translating lab protocols into pilot-scale bioreactors.",
@@ -124,7 +134,7 @@ export const MOCK_PROFILES: Profile[] = [
         url: "https://amirhassan-lab.ntu.edu.sg",
       },
       { label: "GitHub", url: "https://github.com/amirhassan-ntu" },
-      { label: "IP Query", url: "amir.hassan@ntu.edu.sg" }
+      { label: "IP Query", url: "amir.hassan@ntu.edu.sg" },
     ],
     summary:
       "HCI and accessibility researcher studying assistive interfaces for neurodiverse learners. Happy to advise edtech startups on inclusive product design and user studies.",

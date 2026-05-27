@@ -1,5 +1,9 @@
 import { z } from "zod";
+
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
+import { onboardRouter } from "@/trpc/routers/onboard";
+import { profilesRouter } from "@/trpc/routers/profiles";
+import { seedRouter } from "@/trpc/routers/seed";
 
 export const appRouter = createTRPCRouter({
   hello: publicProcedure
@@ -10,6 +14,9 @@ export const appRouter = createTRPCRouter({
         timestamp: new Date(),
       };
     }),
+  onboard: onboardRouter,
+  profiles: profilesRouter,
+  seed: seedRouter,
 });
 
 export type AppRouter = typeof appRouter;

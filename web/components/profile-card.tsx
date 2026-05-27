@@ -10,12 +10,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { Profile } from "@/lib/profile";
 
 type ProfileCardProps = {
-  profile: Profile;
+  profile: {
+    id: string;
+    name: string;
+    contact: string;
+    role: "researcher" | "founder";
+    summary?: string;
+    links?: ReadonlyArray<{ label: string; url: string }>;
+  };
+  /** Match similarity rendered as a percentage (0–100). */
   matchScore?: number;
+  /** Tags to highlight (shared, top, etc.). */
   sharedTags?: string[];
+  /** Optional override for the count shown next to the contact. */
+  itemCount?: { value: number; label: string };
   className?: string;
 };
 
@@ -23,8 +33,15 @@ export function ProfileCard({
   profile,
   matchScore,
   sharedTags = [],
+  itemCount,
   className,
 }: ProfileCardProps) {
+  const count =
+    itemCount ?? {
+      value: profile.links?.length ?? 0,
+      label: "link",
+    };
+
   return (
     <Link href={`/profile/${profile.id}`} className={cn("group block", className)}>
       <Card className="h-full transition-colors hover:bg-muted/30">
@@ -32,9 +49,11 @@ export function ProfileCard({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <CardTitle className="truncate font-sans">{profile.name}</CardTitle>
-              <CardDescription className="line-clamp-2">
-                {profile.summary}
-              </CardDescription>
+              {profile.summary ? (
+                <CardDescription className="line-clamp-2">
+                  {profile.summary}
+                </CardDescription>
+              ) : null}
             </div>
             <ArrowUpRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
           </div>
@@ -62,8 +81,8 @@ export function ProfileCard({
             </div>
           )}
           <p className="text-[10px] text-muted-foreground">
-            {profile.links.length} link{profile.links.length === 1 ? "" : "s"} ·{" "}
-            {profile.contact}
+            {count.value} {count.label}
+            {count.value === 1 ? "" : "s"} · {profile.contact}
           </p>
         </CardContent>
       </Card>
