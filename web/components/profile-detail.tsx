@@ -1,13 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  ArrowSquareOut,
-  EnvelopeSimple,
-  Phone,
-} from "@phosphor-icons/react";
+import { ArrowLeft, Mail, Phone, SquareArrowOutUpRight } from "lucide-react";
 
 import { RoleBadge } from "@/components/role-badge";
 import { SiteHeader } from "@/components/site-header";
@@ -20,64 +12,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MOCK_PROFILES } from "@/lib/mock-profiles";
 import type { Profile } from "@/lib/profile";
-import { getCurrentProfile } from "@/lib/profile-storage";
 
 type ProfileDetailProps = {
-  profileId: string;
+  profile: Profile;
 };
 
-export function ProfileDetail({ profileId }: ProfileDetailProps) {
-  const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (profileId === "me") {
-      setProfile(getCurrentProfile());
-      return;
-    }
-
-    const mock = MOCK_PROFILES.find((entry) => entry.id === profileId) ?? null;
-    setProfile(mock);
-  }, [profileId]);
-
-  if (profile === undefined) {
-    return (
-      <div className="flex min-h-full flex-col">
-        <SiteHeader />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-16 sm:px-6">
-          <p className="text-muted-foreground">Loading profile…</p>
-        </main>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="flex min-h-full flex-col">
-        <SiteHeader />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-16 sm:px-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile not found</CardTitle>
-              <CardDescription>
-                This member may not exist in the mock directory yet.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/">
-                  <ArrowLeft />
-                  Back to discover
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </main>
-      </div>
-    );
-  }
-
+export function ProfileDetail({ profile }: ProfileDetailProps) {
   return (
     <div className="flex min-h-full flex-col">
       <SiteHeader />
@@ -94,11 +35,6 @@ export function ProfileDetail({ profileId }: ProfileDetailProps) {
           <header className="space-y-3 border border-border p-5">
             <div className="flex flex-wrap items-center gap-2">
               <RoleBadge role={profile.role} />
-              {profile.id === "me" && (
-                <span className="border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Your profile
-                </span>
-              )}
             </div>
             <h1 className="font-sans text-2xl font-medium tracking-tight">
               {profile.name}
@@ -115,7 +51,7 @@ export function ProfileDetail({ profileId }: ProfileDetailProps) {
               </CardHeader>
               <CardContent className="space-y-2 text-xs">
                 <p className="flex items-center gap-2">
-                  <EnvelopeSimple className="size-3.5 text-muted-foreground" />
+                  <Mail className="size-3.5 text-muted-foreground" />
                   <a
                     href={`mailto:${profile.email}`}
                     className="underline-offset-4 hover:underline"
@@ -189,7 +125,7 @@ export function ProfileDetail({ profileId }: ProfileDetailProps) {
                           {link.url}
                         </span>
                       </span>
-                      <ArrowSquareOut className="size-4 shrink-0 text-muted-foreground" />
+                      <SquareArrowOutUpRight className="size-4 shrink-0 text-muted-foreground" />
                     </a>
                   </li>
                 ))}

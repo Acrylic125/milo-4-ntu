@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { ArrowLeft, ArrowRight, LinkSimple } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Link2 } from "lucide-react";
 
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
@@ -161,7 +161,7 @@ export default function OnboardPage() {
                         {...register("linksRaw")}
                       />
                       <FieldDescription className="flex items-center gap-1">
-                        <LinkSimple className="size-3" />
+                        <Link2 className="size-3" />
                         Paste Google Scholar, lab pages, portfolios, or startup
                         sites.
                       </FieldDescription>

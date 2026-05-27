@@ -1,6 +1,6 @@
 "use client";
 
-import { GraduationCap, RocketLaunch } from "@phosphor-icons/react";
+import { GraduationCap, Rocket } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { ProfileRole } from "@/lib/profile";
@@ -24,9 +24,9 @@ export function RoleBadge({ role, className }: RoleBadgeProps) {
       )}
     >
       {isResearcher ? (
-        <GraduationCap className="size-3" weight="duotone" />
+        <GraduationCap className="size-3" />
       ) : (
-        <RocketLaunch className="size-3" weight="duotone" />
+        <Rocket className="size-3" />
       )}
       {isResearcher ? "Researcher" : "Founder"}
     </span>

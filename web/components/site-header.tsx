@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image"
-import { Flask, UsersThree } from "@phosphor-icons/react";
+import { CircleUserRound, FlaskConical, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { UserCircle } from "@phosphor-icons/react";
 import { getCurrentProfile } from "@/lib/profile-storage";
 
 type SiteHeaderProps = {
@@ -40,7 +39,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center border border-border bg-muted">
-            <Flask className="size-4" weight="duotone" />
+            <FlaskConical className="size-4" />
           </span>
           <div className="leading-tight">
             <p className="font-sans text-sm font-medium tracking-tight">
@@ -62,7 +61,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
         <nav className="flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/">
-              <UsersThree className="size-3.5" />
+              <Users className="size-3.5" />
               Discover
             </Link>
           </Button>
@@ -70,7 +69,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
             <Link href={hasProfile ? "/profile/me" : "/onboard"}>
               {hasProfile ? (
                 <>
-                  <UserCircle className="size-4" />
+                  <CircleUserRound className="size-4" />
                   My profile
                 </>
               ) : (

@@ -78,9 +78,9 @@ export const profiles = pgTable(
     // HNSW + cosine distance for nearest-neighbour search on the combined embedding.
     index("profiles_embedding_idx").using(
       "hnsw",
-      table.embedding.op("vector_cosine_ops"),
+      table.embedding.op("vector_cosine_ops")
     ),
-  ],
+  ]
 );
 
 export type ProfileRow = typeof profiles.$inferSelect;

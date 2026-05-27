@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Sparkle } from "@phosphor-icons/react";
+import { ArrowUpRight, Sparkles } from "lucide-react";
 
 import { RoleBadge } from "@/components/role-badge";
 import {
@@ -42,7 +42,7 @@ export function ProfileCard({
             <RoleBadge role={profile.role} />
             {typeof matchScore === "number" && (
               <span className="inline-flex items-center gap-1 border border-primary/25 bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                <Sparkle className="size-3" weight="fill" />
+                <Sparkles className="size-3" />
                 {matchScore}% match
               </span>
             )}

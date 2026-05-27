@@ -4,11 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Handshake,
-  MagnifyingGlass,
-  UserCircle,
-} from "@phosphor-icons/react";
+import { CircleUserRound, Handshake, Search } from "lucide-react";
 
 import { ProfileCard } from "@/components/profile-card";
 import { SiteHeader } from "@/components/site-header";
@@ -122,7 +118,7 @@ export function HomePage() {
 
         {!viewer ? (
           <Alert className="mb-8">
-            <UserCircle />
+            <CircleUserRound />
             <AlertTitle>Complete onboarding to unlock matches</AlertTitle>
             <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span>
@@ -137,7 +133,7 @@ export function HomePage() {
         ) : (
           <section className="mb-10">
             <div className="mb-4 flex items-center gap-2">
-              <Handshake className="size-4" weight="duotone" />
+              <Handshake className="size-4" />
               <h2 className="font-sans text-sm font-medium">
                 Top matches for you
               </h2>
@@ -192,7 +188,7 @@ export function HomePage() {
 
             <div className="flex w-full flex-col gap-2 sm:max-w-md">
               <div className="relative">
-                <MagnifyingGlass className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
