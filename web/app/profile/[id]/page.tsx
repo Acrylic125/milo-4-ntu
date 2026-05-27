@@ -189,7 +189,7 @@ async function loadProfile(id: string) {
         links: patents.links,
       })
       .from(patents)
-      .where(eq(patents.id, id))
+      .where(eq(patents.profileId, id))
       .limit(1),
   ]);
 
