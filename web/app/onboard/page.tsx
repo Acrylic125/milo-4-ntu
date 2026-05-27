@@ -60,7 +60,7 @@ export default function OnboardPage() {
       email: "",
       contact: "",
       linksRaw: "",
-      summary: "",
+      workingOn: "",
     },
     mode: "onTouched",
   });
@@ -95,6 +95,7 @@ export default function OnboardPage() {
         email: values.email,
         contact: values.contact,
         links,
+        workingOn: values.workingOn,
       });
     } catch (err) {
       setSubmitError(
@@ -109,7 +110,7 @@ export default function OnboardPage() {
       email: values.email,
       contact: values.contact,
       linksRaw: values.linksRaw,
-      summary: values.summary,
+      workingOn: values.workingOn,
     });
 
     try {
@@ -218,28 +219,34 @@ export default function OnboardPage() {
             ) : (
               <>
                 <CardHeader>
-                  <CardTitle className="font-sans">Profile summary</CardTitle>
+                  <CardTitle className="font-sans">
+                    What are you working on right now?
+                  </CardTitle>
                   <CardDescription>
-                    Describe your focus, what you are building or researching,
-                    and who you want to meet.
+                    A sentence or two about your current focus — the problem,
+                    the technology, or the kind of collaborator you want to
+                    meet. We embed this and match it against everyone&apos;s
+                    patents.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <FieldGroup>
-                    <Field data-invalid={!!errors.summary}>
-                      <FieldLabel htmlFor="summary">Summary</FieldLabel>
+                    <Field data-invalid={!!errors.workingOn}>
+                      <FieldLabel htmlFor="workingOn">
+                        Currently working on
+                      </FieldLabel>
                       <Textarea
-                        id="summary"
-                        aria-invalid={!!errors.summary}
-                        placeholder="e.g. Robotics PhD working on sim-to-real transfer. Looking for founders building warehouse automation pilots in Singapore."
+                        id="workingOn"
+                        aria-invalid={!!errors.workingOn}
+                        placeholder="e.g. Prototyping a sim-to-real pipeline for warehouse robot arms. Looking for founders shipping pick-and-place pilots in SEA."
                         className="min-h-36"
-                        {...register("summary")}
+                        {...register("workingOn")}
                       />
                       <FieldDescription>
-                        This powers match ranking on the discover page alongside
-                        your scraped NTU listings.
+                        Used as a second similarity signal on top of your
+                        scraped NTU patents.
                       </FieldDescription>
-                      <FieldError errors={[errors.summary]} />
+                      <FieldError errors={[errors.workingOn]} />
                     </Field>
                     {submitError ? (
                       <p

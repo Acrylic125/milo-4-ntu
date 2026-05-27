@@ -17,7 +17,7 @@ type ProfileCardProps = {
     name: string;
     contact: string;
     role: "researcher" | "founder";
-    summary?: string;
+    workingOn?: string;
     links?: ReadonlyArray<{ label: string; url: string }>;
   };
   /** Match similarity rendered as a percentage (0–100). */
@@ -49,9 +49,9 @@ export function ProfileCard({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <CardTitle className="truncate font-sans">{profile.name}</CardTitle>
-              {profile.summary ? (
+              {profile.workingOn ? (
                 <CardDescription className="line-clamp-2">
-                  {profile.summary}
+                  {profile.workingOn}
                 </CardDescription>
               ) : null}
             </div>

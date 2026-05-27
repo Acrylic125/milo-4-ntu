@@ -25,6 +25,8 @@ type RecommendationRow = {
   role: "researcher" | "founder";
   tags: string[] | null;
   similarity: string | number;
+  patent_match: string | number | null;
+  working_on_match: string | number | null;
   patent_count: string | number;
 };
 
@@ -47,12 +49,20 @@ export const profilesRouter = createTRPCRouter({
   /**
    * Embedding-based recommendations.
    *
-   * For every other profile, we compute the smallest cosine distance between any
-   * of their patents and any of the viewer's patents (i.e. the best match),
-   * then sort ascending by distance (= descending by similarity).
+   * For every other profile we compute two similarity signals and take the
+   * max:
    *
-   * Returns an empty array when there's no assumed user or no overlapping
-   * embeddings to compare.
+   *   1. `patent_match` — best cosine similarity between any pair of (their
+   *      patent, viewer's patent) embeddings.
+   *   2. `working_on_match` — best cosine similarity between the viewer's
+   *      "what I'm working on" embedding and any of their patent embeddings.
+   *
+   * `similarity = max(patent_match, working_on_match)` so a candidate can
+   * surface either because their patents overlap with the viewer's patents
+   * or because their patents align with what the viewer is currently
+   * working on.
+   *
+   * Candidates without patents are excluded (nothing to compare against).
    */
   recommendations: publicProcedure
     .input(
@@ -68,6 +78,35 @@ export const profilesRouter = createTRPCRouter({
       if (!viewerId) return [];
 
       const rows = await db.execute<RecommendationRow>(sql`
+        WITH candidate_patents AS (
+          SELECT cp.id, cp.profile_id, cp.embedding
+          FROM ${patents} cp
+          WHERE cp.profile_id <> ${viewerId}
+            AND cp.embedding IS NOT NULL
+        ),
+        patent_pair AS (
+          SELECT cp.profile_id,
+                 MAX(1 - (cp.embedding <=> vp.embedding)) AS score
+          FROM candidate_patents cp
+          JOIN ${patents} vp
+            ON vp.profile_id = ${viewerId}
+           AND vp.embedding IS NOT NULL
+          GROUP BY cp.profile_id
+        ),
+        working_on_match AS (
+          SELECT cp.profile_id,
+                 MAX(1 - (cp.embedding <=> v.working_on_embedding)) AS score
+          FROM candidate_patents cp
+          JOIN ${profiles} v
+            ON v.id = ${viewerId}
+           AND v.working_on_embedding IS NOT NULL
+          GROUP BY cp.profile_id
+        ),
+        patent_counts AS (
+          SELECT profile_id, COUNT(DISTINCT id) AS patent_count
+          FROM candidate_patents
+          GROUP BY profile_id
+        )
         SELECT
           p.id,
           p.name,
@@ -75,15 +114,21 @@ export const profilesRouter = createTRPCRouter({
           p.contact,
           p.role,
           p.tags,
-          1 - MIN(cp.embedding <=> vp.embedding) AS similarity,
-          COUNT(DISTINCT cp.id) AS patent_count
-        FROM ${patents} AS cp
-        INNER JOIN ${profiles} AS p ON p.id = cp.profile_id
-        INNER JOIN ${patents} AS vp ON vp.profile_id = ${viewerId}
-        WHERE cp.profile_id <> ${viewerId}
-          AND cp.embedding IS NOT NULL
-          AND vp.embedding IS NOT NULL
-        GROUP BY p.id, p.name, p.email, p.contact, p.role, p.tags
+          pp.score AS patent_match,
+          wo.score AS working_on_match,
+          GREATEST(
+            COALESCE(pp.score, -1),
+            COALESCE(wo.score, -1)
+          ) AS similarity,
+          COALESCE(pc.patent_count, 0) AS patent_count
+        FROM ${profiles} p
+        INNER JOIN patent_counts pc ON pc.profile_id = p.id
+        LEFT JOIN patent_pair pp ON pp.profile_id = p.id
+        LEFT JOIN working_on_match wo ON wo.profile_id = p.id
+        WHERE GREATEST(
+          COALESCE(pp.score, -1),
+          COALESCE(wo.score, -1)
+        ) > -1
         ORDER BY similarity DESC
         LIMIT ${limit}
       `);
@@ -96,6 +141,9 @@ export const profilesRouter = createTRPCRouter({
         role: row.role,
         tags: row.tags ?? [],
         similarity: Number(row.similarity),
+        patentMatch: row.patent_match == null ? null : Number(row.patent_match),
+        workingOnMatch:
+          row.working_on_match == null ? null : Number(row.working_on_match),
         patentCount: Number(row.patent_count),
       }));
     }),

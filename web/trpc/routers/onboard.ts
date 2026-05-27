@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { patents, profiles } from "@/db/schema";
-import { embedTechOffer } from "@/lib/embedding";
+import { embedTechOffer, embedText } from "@/lib/embedding";
 import { NTU_TECH_OFFER_PREFIX } from "@/lib/onboard-schema";
 import { scrapeNtuTechOffer } from "@/lib/scrape-ntu-tech";
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
@@ -23,6 +23,11 @@ const submitInput = z.object({
   name: z.string().trim().min(1).optional(),
   role: z.enum(["researcher", "founder"]).optional(),
   links: z.array(ntuTechLink).min(1, "Add at least one NTU tech-portal link"),
+  workingOn: z
+    .string()
+    .trim()
+    .min(20, "Tell us a bit more about what you're working on")
+    .optional(),
 });
 
 const submitOutput = z.object({
@@ -47,18 +52,21 @@ export const onboardRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       // Scrape + embed every link before touching the DB so a failure aborts
       // cleanly with no half-written profile.
-      const scraped = await Promise.all(
-        input.links.map(async (url) => {
-          const offer = await scrapeNtuTechOffer(url);
-          const embedded = await embedTechOffer({
-            synopsis: offer.synopsis,
-            opportunity: offer.opportunity,
-            technology: offer.technology,
-            applications: offer.applications,
-          });
-          return { offer, embedding: embedded.embedding };
-        })
-      );
+      const [scraped, workingOnEmbedding] = await Promise.all([
+        Promise.all(
+          input.links.map(async (url) => {
+            const offer = await scrapeNtuTechOffer(url);
+            const embedded = await embedTechOffer({
+              synopsis: offer.synopsis,
+              opportunity: offer.opportunity,
+              technology: offer.technology,
+              applications: offer.applications,
+            });
+            return { offer, embedding: embedded.embedding };
+          })
+        ),
+        input.workingOn ? embedText(input.workingOn) : Promise.resolve(null),
+      ]);
 
       try {
         const [profile] = await db
@@ -68,6 +76,8 @@ export const onboardRouter = createTRPCRouter({
             email: input.email,
             contact: input.contact,
             role: input.role ?? "researcher",
+            workingOn: input.workingOn ?? "",
+            workingOnEmbedding: workingOnEmbedding ?? undefined,
           })
           .returning({ id: profiles.id });
 

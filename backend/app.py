@@ -7,9 +7,9 @@ CORS(app)
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
+
 @app.route("/embed", methods=["POST"])
 def embed():
-
     data = request.get_json()
 
     synopsis = data.get("synopsis", "")
@@ -42,6 +42,22 @@ def embed():
     }
 
     return jsonify(response)
+
+
+@app.route("/embed-text", methods=["POST"])
+def embed_text():
+    """Embed a single free-text blob (used for the "what are you working on"
+    onboarding field). Returns the same `embedding` shape as /embed so the
+    web client can store it directly into the `working_on_embedding` column.
+    """
+    data = request.get_json() or {}
+    text = (data.get("text") or "").strip()
+
+    if not text:
+        return jsonify({"error": "`text` must be a non-empty string"}), 400
+
+    return jsonify({"embedding": model.encode(text).tolist()})
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=8002)

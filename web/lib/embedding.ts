@@ -41,3 +41,34 @@ export async function embedTechOffer(input: EmbedInput): Promise<EmbedResponse> 
   }
   return data as EmbedResponse;
 }
+
+/**
+ * Embed a single free-text blob (e.g. the "what are you working on" answer
+ * from onboarding). Hits the backend's `/embed-text` route and returns the
+ * raw 384-dim vector.
+ */
+export async function embedText(text: string): Promise<number[]> {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error("embedText() requires a non-empty string");
+  }
+
+  const res = await fetch(`${backendUrl()}/embed-text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: trimmed }),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Embedding service responded ${res.status} ${res.statusText}`
+    );
+  }
+
+  const data = (await res.json()) as { embedding?: number[] };
+  if (!Array.isArray(data.embedding)) {
+    throw new Error("Embedding service returned no `embedding` array");
+  }
+  return data.embedding;
+}

@@ -32,6 +32,11 @@ export const profiles = pgTable(
     email: text("email").notNull().unique(),
     contact: text("contact").notNull(),
 
+    workingOn: text("working_on").default(""),
+    workingOnEmbedding: vector("working_on_embedding", {
+      dimensions: EMBEDDING_DIM,
+    }),
+
     role: profileRoleEnum("role").notNull().default("researcher"),
     tags: text("tags")
       .array()

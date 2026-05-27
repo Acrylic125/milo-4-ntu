@@ -31,11 +31,11 @@ export const onboardSchema = z.object({
       },
       `Every link must start with ${NTU_TECH_OFFER_PREFIX}`
     ),
-  summary: z
+  workingOn: z
     .string()
     .trim()
-    .min(1, "Summary is required")
-    .min(20, "Write at least a short summary (20+ characters)"),
+    .min(1, "Tell us what you're working on")
+    .min(20, "Add at least a sentence (20+ characters)"),
 });
 
 export type OnboardFormValues = z.infer<typeof onboardSchema>;

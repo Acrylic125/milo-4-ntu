@@ -7,7 +7,7 @@ export type ProfileInput = {
   email: string;
   contact: string;
   linksRaw: string;
-  summary: string;
+  workingOn: string;
   role?: Profile["role"];
 };
 
@@ -83,8 +83,8 @@ function parseLinks(raw: string): Profile["links"] {
   });
 }
 
-function extractTags(summary: string, linksRaw: string): string[] {
-  const text = `${summary} ${linksRaw}`.toLowerCase();
+function extractTags(workingOn: string, linksRaw: string): string[] {
+  const text = `${workingOn} ${linksRaw}`.toLowerCase();
   const words = text.match(/[a-z0-9][a-z0-9-]{2,}/g) ?? [];
 
   const tags = new Set<string>();
@@ -96,8 +96,8 @@ function extractTags(summary: string, linksRaw: string): string[] {
   return [...tags].slice(0, 12);
 }
 
-function inferRole(summary: string, linksRaw: string): Profile["role"] {
-  const text = `${summary} ${linksRaw}`.toLowerCase();
+function inferRole(workingOn: string, linksRaw: string): Profile["role"] {
+  const text = `${workingOn} ${linksRaw}`.toLowerCase();
   const founderSignals = [
     "startup",
     "founder",
@@ -155,9 +155,9 @@ export function saveCurrentProfile(input: ProfileInput): Profile {
     contact: input.contact.trim(),
     linksRaw: input.linksRaw.trim(),
     links: parseLinks(input.linksRaw),
-    summary: input.summary.trim(),
-    role: input.role ?? inferRole(input.summary, input.linksRaw),
-    tags: extractTags(input.summary, input.linksRaw),
+    workingOn: input.workingOn.trim(),
+    role: input.role ?? inferRole(input.workingOn, input.linksRaw),
+    tags: extractTags(input.workingOn, input.linksRaw),
   };
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
