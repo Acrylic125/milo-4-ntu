@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
 import { onboardRouter } from "@/trpc/routers/onboard";
+import { patentsRouter } from "@/trpc/routers/patents";
 import { profilesRouter } from "@/trpc/routers/profiles";
 import { seedRouter } from "@/trpc/routers/seed";
 
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
       };
     }),
   onboard: onboardRouter,
+  patents: patentsRouter,
   profiles: profilesRouter,
   seed: seedRouter,
 });
