@@ -14,7 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useTRPC } from "@/trpc/client";
 
-type RoleFilter = "all" | "researcher" | "founder";
+type RoleFilter = "all" | "student" | "researcher";
 
 export function HomePage() {
   const trpc = useTRPC();
@@ -90,7 +90,7 @@ export function HomePage() {
               </p>
 
               <h1 className="max-w-2xl font-sans text-2xl font-medium tracking-tight sm:text-3xl">
-                Match researchers with founders building in the same problem
+                Match students with researchers building in the same problem
                 space.
               </h1>
 
@@ -159,8 +159,8 @@ export function HomePage() {
                 {(
                   [
                     ["all", "Everyone"],
+                    ["student", "Students"],
                     ["researcher", "Researchers"],
-                    ["founder", "Founders"],
                   ] as const
                 ).map(([value, label]) => (
                   <Button

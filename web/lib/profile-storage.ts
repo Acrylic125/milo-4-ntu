@@ -7,7 +7,8 @@ export type ProfileInput = {
   email: string;
   contact: string;
   linksRaw: string;
-  workingOn: string;
+  /** Free-text description used for similarity matching. */
+  lookingFor: string;
   role?: Profile["role"];
 };
 
@@ -83,8 +84,8 @@ function parseLinks(raw: string): Profile["links"] {
   });
 }
 
-function extractTags(workingOn: string, linksRaw: string): string[] {
-  const text = `${workingOn} ${linksRaw}`.toLowerCase();
+function extractTags(lookingFor: string, linksRaw: string): string[] {
+  const text = `${lookingFor} ${linksRaw}`.toLowerCase();
   const words = text.match(/[a-z0-9][a-z0-9-]{2,}/g) ?? [];
 
   const tags = new Set<string>();
@@ -96,17 +97,8 @@ function extractTags(workingOn: string, linksRaw: string): string[] {
   return [...tags].slice(0, 12);
 }
 
-function inferRole(workingOn: string, linksRaw: string): Profile["role"] {
-  const text = `${workingOn} ${linksRaw}`.toLowerCase();
-  const founderSignals = [
-    "startup",
-    "founder",
-    "ceo",
-    "venture",
-    "product",
-    "go-to-market",
-    "pitch",
-  ];
+function inferRole(lookingFor: string, linksRaw: string): Profile["role"] {
+  const text = `${lookingFor} ${linksRaw}`.toLowerCase();
   const researcherSignals = [
     "research",
     "phd",
@@ -114,16 +106,26 @@ function inferRole(workingOn: string, linksRaw: string): Profile["role"] {
     "lab",
     "publication",
     "paper",
-    "university",
     "thesis",
+    "patent",
+  ];
+  const studentSignals = [
+    "student",
+    "undergrad",
+    "undergraduate",
+    "bachelor",
+    "course",
+    "module",
+    "syllabus",
+    "intern",
   ];
 
-  const founderScore = founderSignals.filter((s) => text.includes(s)).length;
   const researcherScore = researcherSignals.filter((s) =>
     text.includes(s)
   ).length;
+  const studentScore = studentSignals.filter((s) => text.includes(s)).length;
 
-  return founderScore >= researcherScore ? "founder" : "researcher";
+  return researcherScore >= studentScore ? "researcher" : "student";
 }
 
 function displayNameFromEmail(email: string): string {
@@ -155,9 +157,9 @@ export function saveCurrentProfile(input: ProfileInput): Profile {
     contact: input.contact.trim(),
     linksRaw: input.linksRaw.trim(),
     links: parseLinks(input.linksRaw),
-    workingOn: input.workingOn.trim(),
-    role: input.role ?? inferRole(input.workingOn, input.linksRaw),
-    tags: extractTags(input.workingOn, input.linksRaw),
+    lookingFor: input.lookingFor.trim(),
+    role: input.role ?? inferRole(input.lookingFor, input.linksRaw),
+    tags: extractTags(input.lookingFor, input.linksRaw),
   };
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));

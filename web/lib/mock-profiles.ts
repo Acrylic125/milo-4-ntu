@@ -5,8 +5,8 @@ export type Profile = {
   contact: string;
   linksRaw: string;
   links: { label: string; url: string }[];
-  workingOn: string;
-  role: "researcher" | "founder";
+  lookingFor: string;
+  role: "student" | "researcher";
   tags: string[];
 };
 
@@ -27,7 +27,7 @@ export const MOCK_PROFILES: Profile[] = [
       { label: "Personal site", url: "https://priyasharma.dev" },
       { label: "IP Query", url: "priya.sharma@ntu.edu.sg" },
     ],
-    workingOn:
+    lookingFor:
       "ML researcher focused on efficient transformers and on-device inference for robotics. Open to collaborating with founders building perception stacks for warehouse automation.",
     role: "researcher",
     tags: [
@@ -54,9 +54,9 @@ export const MOCK_PROFILES: Profile[] = [
       },
       { label: "GitHub", url: "https://github.com/marcustan-logi" },
     ],
-    workingOn:
+    lookingFor:
       "Founder building AI routing for last-mile logistics in Southeast Asia. Looking for researchers in reinforcement learning, fleet optimization, and computer vision for parcel scanning.",
-    role: "founder",
+    role: "student",
     tags: [
       "logistics",
       "reinforcement-learning",
@@ -84,7 +84,7 @@ export const MOCK_PROFILES: Profile[] = [
       },
       { label: "IP Query", url: "elena.voss@ethz.ch" },
     ],
-    workingOn:
+    lookingFor:
       "Synthetic biology researcher working on programmable microbes for carbon capture. Interested in deeptech founders translating lab protocols into pilot-scale bioreactors.",
     role: "researcher",
     tags: [
@@ -109,9 +109,9 @@ export const MOCK_PROFILES: Profile[] = [
         url: "https://linkedin.com/in/jordanlee-climate",
       },
     ],
-    workingOn:
+    lookingFor:
       "Climate tech founder commercializing modular bioreactors for industrial CO2 utilization. Seeking academic partners in metabolic engineering and process control.",
-    role: "founder",
+    role: "student",
     tags: [
       "climate",
       "bioreactors",
@@ -136,7 +136,7 @@ export const MOCK_PROFILES: Profile[] = [
       { label: "GitHub", url: "https://github.com/amirhassan-ntu" },
       { label: "IP Query", url: "amir.hassan@ntu.edu.sg" },
     ],
-    workingOn:
+    lookingFor:
       "HCI and accessibility researcher studying assistive interfaces for neurodiverse learners. Happy to advise edtech startups on inclusive product design and user studies.",
     role: "researcher",
     tags: [
@@ -160,9 +160,9 @@ export const MOCK_PROFILES: Profile[] = [
         url: "https://linkedin.com/in/sofia-ng-edtech",
       },
     ],
-    workingOn:
+    lookingFor:
       "Edtech founder building adaptive learning paths for vocational schools. Looking for HCI researchers and learning scientists for pilots in Singapore and Malaysia.",
-    role: "founder",
+    role: "student",
     tags: [
       "edtech",
       "adaptive-learning",

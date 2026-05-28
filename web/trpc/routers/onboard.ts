@@ -17,18 +17,36 @@ const ntuTechLink = z
     `Each link must start with ${NTU_TECH_OFFER_PREFIX}`
   );
 
-const submitInput = z.object({
+// Shared fields for every onboarding role.
+const baseInput = {
   email: z.email(),
   contact: z.string().trim().min(2),
   name: z.string().trim().min(1).optional(),
-  role: z.enum(["researcher", "founder"]).optional(),
-  links: z.array(ntuTechLink).min(1, "Add at least one NTU tech-portal link"),
-  workingOn: z
+};
+
+const studentInput = z.object({
+  ...baseInput,
+  role: z.literal("student"),
+  interestedIn: z
     .string()
     .trim()
-    .min(20, "Tell us a bit more about what you're working on")
-    .optional(),
+    .min(20, "Tell us a bit more about what you're interested in"),
 });
+
+const researcherInput = z.object({
+  ...baseInput,
+  role: z.literal("researcher"),
+  // "My work" textarea: parsed NTU tech-portal links that we scrape into
+  // the `patents` table.
+  links: z.array(ntuTechLink).min(1, "Add at least one NTU tech-portal link"),
+  // "Problem I am trying to solve" textarea: free text, stored as lookingFor.
+  problemSolving: z
+    .string()
+    .trim()
+    .min(20, "Tell us a bit more about the problem you are trying to solve"),
+});
+
+const submitInput = z.discriminatedUnion("role", [studentInput, researcherInput]);
 
 const submitOutput = z.object({
   profileId: z.string().uuid(),
@@ -50,11 +68,22 @@ export const onboardRouter = createTRPCRouter({
     .input(submitInput)
     .output(submitOutput)
     .mutation(async ({ input }) => {
-      // Scrape + embed every link before touching the DB so a failure aborts
+      // `lookingFor` carries the descriptive blob we embed for similarity
+      // search — it's the student's "interested in" or the researcher's
+      // "problem I am trying to solve" paragraph, depending on role.
+      const lookingFor =
+        input.role === "researcher" ? input.problemSolving : input.interestedIn;
+
+      // Researchers also paste NTU tech-portal links (from the "My work"
+      // textarea) that we scrape into patent rows. Students don't have any.
+      const researcherLinks =
+        input.role === "researcher" ? input.links : [];
+
+      // Scrape + embed everything before touching the DB so a failure aborts
       // cleanly with no half-written profile.
-      const [scraped, workingOnEmbedding] = await Promise.all([
+      const [scraped, lookingForEmbedding] = await Promise.all([
         Promise.all(
-          input.links.map(async (url) => {
+          researcherLinks.map(async (url) => {
             const offer = await scrapeNtuTechOffer(url);
             const embedded = await embedTechOffer({
               synopsis: offer.synopsis,
@@ -65,7 +94,7 @@ export const onboardRouter = createTRPCRouter({
             return { offer, embedding: embedded.embedding };
           })
         ),
-        input.workingOn ? embedText(input.workingOn) : Promise.resolve(null),
+        embedText(lookingFor),
       ]);
 
       try {
@@ -75,9 +104,9 @@ export const onboardRouter = createTRPCRouter({
             name: input.name ?? displayNameFromEmail(input.email),
             email: input.email,
             contact: input.contact,
-            role: input.role ?? "researcher",
-            workingOn: input.workingOn ?? "",
-            workingOnEmbedding: workingOnEmbedding ?? undefined,
+            role: input.role,
+            lookingFor,
+            lookingForEmbedding: lookingForEmbedding ?? undefined,
           })
           .returning({ id: profiles.id });
 

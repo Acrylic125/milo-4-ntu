@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
   index,
-  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -19,8 +18,8 @@ export type ProfileLink = {
 };
 
 export const profileRoleEnum = pgEnum("profile_role", [
+  "student",
   "researcher",
-  "founder",
 ]);
 
 export const profiles = pgTable(
@@ -32,8 +31,8 @@ export const profiles = pgTable(
     email: text("email").notNull().unique(),
     contact: text("contact").notNull(),
 
-    workingOn: text("working_on").default(""),
-    workingOnEmbedding: vector("working_on_embedding", {
+    lookingFor: text("looking_for").default(""),
+    lookingForEmbedding: vector("looking_for_embedding", {
       dimensions: EMBEDDING_DIM,
     }),
 

@@ -43,7 +43,7 @@ export async function embedTechOffer(input: EmbedInput): Promise<EmbedResponse> 
 }
 
 /**
- * Embed a single free-text blob (e.g. the "what are you working on" answer
+ * Embed a single free-text blob (e.g. the "what are you looking for" answer
  * from onboarding). Hits the backend's `/embed-text` route and returns the
  * raw 384-dim vector.
  */

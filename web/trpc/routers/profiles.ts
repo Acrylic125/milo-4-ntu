@@ -22,11 +22,11 @@ type RecommendationRow = {
   name: string;
   email: string;
   contact: string;
-  role: "researcher" | "founder";
+  role: "student" | "researcher";
   tags: string[] | null;
   similarity: string | number;
   patent_match: string | number | null;
-  working_on_match: string | number | null;
+  looking_for_match: string | number | null;
   patent_count: string | number;
 };
 
@@ -54,13 +54,13 @@ export const profilesRouter = createTRPCRouter({
    *
    *   1. `patent_match` — best cosine similarity between any pair of (their
    *      patent, viewer's patent) embeddings.
-   *   2. `working_on_match` — best cosine similarity between the viewer's
-   *      "what I'm working on" embedding and any of their patent embeddings.
+   *   2. `looking_for_match` — best cosine similarity between the viewer's
+   *      "what I'm looking for" embedding and any of their patent embeddings.
    *
-   * `similarity = max(patent_match, working_on_match)` so a candidate can
+   * `similarity = max(patent_match, looking_for_match)` so a candidate can
    * surface either because their patents overlap with the viewer's patents
    * or because their patents align with what the viewer is currently
-   * working on.
+   * looking for.
    *
    * Candidates without patents are excluded (nothing to compare against).
    */
@@ -93,13 +93,13 @@ export const profilesRouter = createTRPCRouter({
            AND vp.embedding IS NOT NULL
           GROUP BY cp.profile_id
         ),
-        working_on_match AS (
+        looking_for_match AS (
           SELECT cp.profile_id,
-                 MAX(1 - (cp.embedding <=> v.working_on_embedding)) AS score
+                 MAX(1 - (cp.embedding <=> v.looking_for_embedding)) AS score
           FROM candidate_patents cp
           JOIN ${profiles} v
             ON v.id = ${viewerId}
-           AND v.working_on_embedding IS NOT NULL
+           AND v.looking_for_embedding IS NOT NULL
           GROUP BY cp.profile_id
         ),
         patent_counts AS (
@@ -115,19 +115,19 @@ export const profilesRouter = createTRPCRouter({
           p.role,
           p.tags,
           pp.score AS patent_match,
-          wo.score AS working_on_match,
+          lf.score AS looking_for_match,
           GREATEST(
             COALESCE(pp.score, -1),
-            COALESCE(wo.score, -1)
+            COALESCE(lf.score, -1)
           ) AS similarity,
           COALESCE(pc.patent_count, 0) AS patent_count
         FROM ${profiles} p
         INNER JOIN patent_counts pc ON pc.profile_id = p.id
         LEFT JOIN patent_pair pp ON pp.profile_id = p.id
-        LEFT JOIN working_on_match wo ON wo.profile_id = p.id
+        LEFT JOIN looking_for_match lf ON lf.profile_id = p.id
         WHERE GREATEST(
           COALESCE(pp.score, -1),
-          COALESCE(wo.score, -1)
+          COALESCE(lf.score, -1)
         ) > -1
         ORDER BY similarity DESC
         LIMIT ${limit}
@@ -142,8 +142,8 @@ export const profilesRouter = createTRPCRouter({
         tags: row.tags ?? [],
         similarity: Number(row.similarity),
         patentMatch: row.patent_match == null ? null : Number(row.patent_match),
-        workingOnMatch:
-          row.working_on_match == null ? null : Number(row.working_on_match),
+        lookingForMatch:
+          row.looking_for_match == null ? null : Number(row.looking_for_match),
         patentCount: Number(row.patent_count),
       }));
     }),
