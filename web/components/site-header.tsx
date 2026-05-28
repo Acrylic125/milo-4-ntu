@@ -98,7 +98,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 <ChevronDown className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72 min-w-72">
+            <DropdownMenuContent align="end" className="w-72 min-w-72 max-h-72">
               <DropdownMenuLabel>Assume user</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {profilesQuery.isLoading ? (
@@ -165,7 +165,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                   My profile
                 </>
               ) : (
-                "Join network"
+                "Link to Network"
               )}
             </Link>
           </Button>

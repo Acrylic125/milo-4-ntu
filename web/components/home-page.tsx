@@ -4,26 +4,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleUserRound, Handshake, Search, Sparkles } from "lucide-react";
+import { CircleUserRound, Search } from "lucide-react";
 
 import { ProfileCard } from "@/components/profile-card";
 import { SiteHeader } from "@/components/site-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { useTRPC } from "@/trpc/client";
 
 type RoleFilter = "all" | "researcher" | "founder";
-
-const TOP_MATCH_COUNT = 6;
 
 export function HomePage() {
   const trpc = useTRPC();
@@ -32,7 +23,7 @@ export function HomePage() {
   const listQuery = useQuery(trpc.profiles.list.queryOptions());
   const recommendationsQuery = useQuery(
     trpc.profiles.recommendations.queryOptions(
-      { limit: 20 },
+      { limit: 50 },
       { enabled: !!currentQuery.data }
     )
   );
@@ -47,10 +38,14 @@ export function HomePage() {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
 
+  const recommendationsById = useMemo(() => {
+    return new Map(recommendations.map((rec) => [rec.id, rec]));
+  }, [recommendations]);
+
   const filteredProfiles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return allProfiles.filter((profile) => {
+    const filtered = allProfiles.filter((profile) => {
       if (roleFilter !== "all" && profile.role !== roleFilter) return false;
       if (!normalizedQuery) return true;
 
@@ -66,13 +61,21 @@ export function HomePage() {
 
       return haystack.includes(normalizedQuery);
     });
-  }, [allProfiles, query, roleFilter]);
 
-  const recommendationsById = useMemo(() => {
-    return new Map(recommendations.map((rec) => [rec.id, rec]));
-  }, [recommendations]);
+    if (!viewer) return filtered;
 
-  const topMatches = recommendations.slice(0, TOP_MATCH_COUNT);
+    // When a viewer is assumed, rank profiles by recommendation similarity
+    // (descending). Profiles without a similarity score fall to the bottom
+    // and keep their alphabetical ordering from the API.
+    return [...filtered].sort((a, b) => {
+      const aScore = recommendationsById.get(a.id)?.similarity;
+      const bScore = recommendationsById.get(b.id)?.similarity;
+      if (aScore == null && bScore == null) return 0;
+      if (aScore == null) return 1;
+      if (bScore == null) return -1;
+      return bScore - aScore;
+    });
+  }, [allProfiles, query, roleFilter, viewer, recommendationsById]);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -110,7 +113,7 @@ export function HomePage() {
           </div>
         </section>
 
-        {!viewer ? (
+        {!viewer && (
           <Alert className="mb-8">
             <CircleUserRound />
             <AlertTitle>Assume a user to unlock recommendations</AlertTitle>
@@ -125,72 +128,7 @@ export function HomePage() {
               </Button>
             </AlertDescription>
           </Alert>
-        ) : (
-          <section className="mb-10">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Handshake className="size-4" />
-                <h2 className="font-sans text-sm font-medium">
-                  Top matches for {viewer.name}
-                </h2>
-              </div>
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Sparkles className="size-3" />
-                ranked by embedding similarity
-              </span>
-            </div>
-
-            {recommendationsQuery.isLoading ? (
-              <Card>
-                <CardContent className="py-6 text-xs text-muted-foreground">
-                  Computing similarity scores…
-                </CardContent>
-              </Card>
-            ) : topMatches.length === 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="font-sans">
-                    No matches yet
-                  </CardTitle>
-                  <CardDescription>
-                    Either you have no patents linked, or no other profiles
-                    have patents to compare against. Add an NTU tech-portal
-                    link during onboarding to seed your embeddings.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {topMatches.map((rec) => (
-                  <ProfileCard
-                    key={rec.id}
-                    profile={{
-                      id: rec.id,
-                      name: rec.name,
-                      contact: rec.contact,
-                      role: rec.role,
-                    }}
-                    matchScore={Math.max(
-                      0,
-                      Math.min(100, Math.round(rec.similarity * 100))
-                    )}
-                    sharedTags={rec.tags}
-                    itemCount={{ value: rec.patentCount, label: "patent" }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {recommendations.length > TOP_MATCH_COUNT && (
-              <p className="mt-3 text-[10px] text-muted-foreground">
-                {recommendations.length - TOP_MATCH_COUNT} more ranked matches
-                appear in the directory below.
-              </p>
-            )}
-          </section>
         )}
-
-        <Separator className="mb-8" />
 
         <section className="space-y-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -201,7 +139,9 @@ export function HomePage() {
                   ? "Loading…"
                   : `${filteredProfiles.length} member${
                       filteredProfiles.length === 1 ? "" : "s"
-                    } in the network`}
+                    } in the network${
+                      viewer ? " · ranked by embedding similarity" : ""
+                    }`}
               </p>
             </div>
 

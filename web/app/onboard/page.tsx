@@ -142,10 +142,6 @@ export default function OnboardPage() {
           <h1 className="font-sans text-2xl font-medium tracking-tight">
             Join the Milo network
           </h1>
-          <p className="text-xs/relaxed text-muted-foreground">
-            Share how to reach you and which NTU tech-portal listings represent
-            your work. We will scrape each link and embed it for matching.
-          </p>
         </div>
 
         <Card>
@@ -220,21 +216,16 @@ export default function OnboardPage() {
               <>
                 <CardHeader>
                   <CardTitle className="font-sans">
-                    What are you working on right now?
+                    What problem are you trying to solve?
                   </CardTitle>
                   <CardDescription>
-                    A sentence or two about your current focus — the problem,
-                    the technology, or the kind of collaborator you want to
-                    meet. We embed this and match it against everyone&apos;s
-                    patents.
+                    Describe bottlenecks, business inefficiencies, gaps, or
+                    other problems you are facing.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <FieldGroup>
                     <Field data-invalid={!!errors.workingOn}>
-                      <FieldLabel htmlFor="workingOn">
-                        Currently working on
-                      </FieldLabel>
                       <Textarea
                         id="workingOn"
                         aria-invalid={!!errors.workingOn}
@@ -242,17 +233,11 @@ export default function OnboardPage() {
                         className="min-h-36"
                         {...register("workingOn")}
                       />
-                      <FieldDescription>
-                        Used as a second similarity signal on top of your
-                        scraped NTU patents.
-                      </FieldDescription>
+
                       <FieldError errors={[errors.workingOn]} />
                     </Field>
                     {submitError ? (
-                      <p
-                        role="alert"
-                        className="text-xs text-destructive"
-                      >
+                      <p role="alert" className="text-xs text-destructive">
                         {submitError}
                       </p>
                     ) : null}
@@ -269,7 +254,7 @@ export default function OnboardPage() {
                     Back
                   </Button>
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Joining…" : "Join network"}
+                    {isSubmitting ? "Linking…" : "Link to Network"}
                   </Button>
                 </CardFooter>
               </>

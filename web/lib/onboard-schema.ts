@@ -21,21 +21,18 @@ export const onboardSchema = z.object({
     .string()
     .trim()
     .min(1, "Add at least one NTU tech-portal link")
-    .refine(
-      (raw) => {
-        const links = parseLinksRaw(raw);
-        return (
-          links.length > 0 &&
-          links.every((url) => url.startsWith(NTU_TECH_OFFER_PREFIX))
-        );
-      },
-      `Every link must start with ${NTU_TECH_OFFER_PREFIX}`
-    ),
+    .refine((raw) => {
+      const links = parseLinksRaw(raw);
+      return (
+        links.length > 0 &&
+        links.every((url) => url.startsWith(NTU_TECH_OFFER_PREFIX))
+      );
+    }, `Every link must start with ${NTU_TECH_OFFER_PREFIX}`),
   workingOn: z
     .string()
     .trim()
-    .min(1, "Tell us what you're working on")
-    .min(20, "Add at least a sentence (20+ characters)"),
+    .min(1, "Describe the problem you are facing")
+    .min(20, "Describe the problem you are facing in at least 20 characters"),
 });
 
 export type OnboardFormValues = z.infer<typeof onboardSchema>;
