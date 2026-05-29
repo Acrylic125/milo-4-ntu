@@ -3,6 +3,12 @@ variable "environment" {
   type        = string
 }
 
+variable "paused" {
+  description = "When true, the workload is paused: the DB ECS service's desired_count is forced to 0 and the EC2 host is stopped."
+  type        = bool
+  default     = false
+}
+
 variable "aws_region" {
   description = "AWS region in which to create resources."
   type        = string
@@ -31,4 +37,29 @@ variable "private_subnet_cidr" {
   description = "IPv4 CIDR block for the private subnet."
   type        = string
   default     = "10.0.2.0/24"
+}
+
+variable "db" {
+  description = "Configuration for the PostgreSQL ECS workload."
+  type = object({
+    postgres_database            = optional(string, "milo")
+    postgres_username            = optional(string, "milo")
+    postgres_password            = string
+    postgres_port                = optional(number, 5432)
+    data_volume_size_gib         = optional(number, 20)
+    connection_string_secret_name = optional(string)
+    cloudflared_tunnel_token     = string
+  })
+
+  sensitive = true
+
+  validation {
+    condition     = var.db.postgres_port >= 1 && var.db.postgres_port <= 65535
+    error_message = "db.postgres_port must be a valid TCP port number."
+  }
+
+  validation {
+    condition     = var.db.data_volume_size_gib >= 1
+    error_message = "db.data_volume_size_gib must be at least 1 GiB."
+  }
 }

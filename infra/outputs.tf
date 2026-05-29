@@ -37,3 +37,25 @@ output "ecr_backend_repository_arn" {
   description = "ARN of the backend ECR repository."
   value       = module.ecr["backend"].repository_arn
 }
+
+output "db_ecs_cluster_name" {
+  description = "Name of the ECS cluster hosting PostgreSQL."
+  value       = module.db.ecs_cluster_name
+}
+
+output "db_ecs_service_name" {
+  description = "Name of the ECS service running PostgreSQL."
+  value       = module.db.ecs_service_name
+}
+
+output "db_connection_string_secret_arn" {
+  description = "ARN of the Secrets Manager connection string secret."
+  value       = module.db.connection_string_secret_arn
+  sensitive   = false
+}
+
+output "db_connection_string_secret_name" {
+  description = "Name of the Secrets Manager connection string secret."
+  value       = module.db.connection_string_secret_name
+  sensitive   = true
+}
