@@ -1,3 +1,10 @@
+locals {
+  ecr_repository_names = {
+    web     = "${var.environment}-milo-web"
+    backend = "${var.environment}-milo-backend"
+  }
+}
+
 module "vpc" {
   source = "./modules/vpc"
 
@@ -10,5 +17,7 @@ module "vpc" {
 module "ecr" {
   source = "./modules/ecr"
 
-  repository_name = var.ecr_repository_name
+  for_each = local.ecr_repository_names
+
+  repository_name = each.value
 }

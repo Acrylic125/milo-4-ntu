@@ -32,9 +32,3 @@ variable "private_subnet_cidr" {
   type        = string
   default     = "10.0.2.0/24"
 }
-
-variable "ecr_repository_name" {
-  description = "Name of the ECR private repository."
-  type        = string
-  default     = "milo-image-repository"
-}

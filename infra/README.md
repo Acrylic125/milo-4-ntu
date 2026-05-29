@@ -10,11 +10,11 @@ infra/
 ├── providers.tf            # AWS provider + default tags
 ├── versions.tf             # required versions + S3 backend (state bucket)
 ├── variables.tf            # inputs consumed by the root module
-├── outputs.tf              # top-level outputs (vpc id, subnet ids, ecr url, ...)
+├── outputs.tf              # top-level outputs (vpc id, subnet ids, ecr urls, ...)
 ├── modules/                # reusable, composable modules
 │   ├── tfstate/            # S3 bucket for Terraform remote state
 │   ├── vpc/                # VPC + public/private subnets + IGW + route tables
-│   └── ecr/                # ECR private repository
+│   └── ecr/                # reusable ECR private repository module
 ├── environments/
 │   └── prod/
 │       └── terraform.tfvars.json   # prod-specific variable values
@@ -70,7 +70,8 @@ The `-backend-config="key=..."` keeps state for each environment under a distinc
 | `infra` | Private subnet | `10.0.2.0/24` in `ap-southeast-1a` |
 | `infra` | Internet Gateway + public route table (default route → IGW) | n/a |
 | `infra` | Private route table (local route only, no NAT) | n/a |
-| `infra` | Private ECR repository (scan-on-push, AES256) | `milo-image-repository` |
+| `infra` | Private ECR repository for web (scan-on-push, AES256) | `<env>-milo-web` |
+| `infra` | Private ECR repository for backend (scan-on-push, AES256) | `<env>-milo-backend` |
 
 ## Tagging
 
@@ -81,7 +82,7 @@ Tags are applied via `default_tags` on the AWS provider — every resource in a 
 | `env` | `prd` (from `var.environment`) |
 | `service` | `tfstate` for the bootstrap stack, `milo-app` for everything in `infra/` |
 
-No per-resource tags (`Name`, `Tier`, etc.) are applied. **Consequence:** VPC, subnets, the Internet Gateway, and route tables will appear in the AWS Console without a friendly display name (just IDs). Resources that have a native name attribute — the S3 bucket (`milo-terraform-state`) and the ECR repository (`milo-image-repository`) — still display correctly.
+No per-resource tags (`Name`, `Tier`, etc.) are applied. **Consequence:** VPC, subnets, the Internet Gateway, and route tables will appear in the AWS Console without a friendly display name (just IDs). Resources that have a native name attribute — the S3 bucket (`milo-terraform-state`) and the ECR repositories (`<env>-milo-web`, `<env>-milo-backend`) — still display correctly.
 
 ## Adding a new environment
 

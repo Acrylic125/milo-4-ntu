@@ -18,12 +18,22 @@ output "internet_gateway_id" {
   value       = module.vpc.internet_gateway_id
 }
 
-output "ecr_repository_url" {
-  description = "URL of the milo-image-repository ECR repository."
-  value       = module.ecr.repository_url
+output "ecr_web_repository_url" {
+  description = "URL of the web ECR repository."
+  value       = module.ecr["web"].repository_url
 }
 
-output "ecr_repository_arn" {
-  description = "ARN of the milo-image-repository ECR repository."
-  value       = module.ecr.repository_arn
+output "ecr_web_repository_arn" {
+  description = "ARN of the web ECR repository."
+  value       = module.ecr["web"].repository_arn
+}
+
+output "ecr_backend_repository_url" {
+  description = "URL of the backend ECR repository."
+  value       = module.ecr["backend"].repository_url
+}
+
+output "ecr_backend_repository_arn" {
+  description = "ARN of the backend ECR repository."
+  value       = module.ecr["backend"].repository_arn
 }
