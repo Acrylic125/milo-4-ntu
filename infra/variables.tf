@@ -63,3 +63,35 @@ variable "db" {
     error_message = "db.data_volume_size_gib must be at least 1 GiB."
   }
 }
+
+variable "web" {
+  description = "Configuration for the web (Next.js) ECS Fargate service."
+  type = object({
+    image_tag        = optional(string, "latest")
+    container_port   = optional(number, 3000)
+    cpu              = optional(number, 512)
+    memory           = optional(number, 1024)
+    desired_count    = optional(number, 1)
+    cpu_architecture = optional(string, "X86_64")
+  })
+  default = {}
+}
+
+variable "backend" {
+  description = "Configuration for the backend (Python) ECS Fargate service."
+  type = object({
+    image_tag        = optional(string, "latest")
+    container_port   = optional(number, 8002)
+    cpu              = optional(number, 512)
+    memory           = optional(number, 1024)
+    desired_count    = optional(number, 1)
+    cpu_architecture = optional(string, "X86_64")
+  })
+  default = {}
+}
+
+variable "service_discovery_namespace" {
+  description = "Private DNS namespace shared by Fargate services (e.g. backend.<namespace>)."
+  type        = string
+  default     = "milo.local"
+}
