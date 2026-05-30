@@ -2,6 +2,9 @@ resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
+  tags = {
+    Name = "${var.environment}-milo-vpc"
+  }
 }
 
 resource "aws_subnet" "public" {
@@ -9,16 +12,28 @@ resource "aws_subnet" "public" {
   cidr_block              = var.public_subnet_cidr
   availability_zone       = var.availability_zone
   map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.environment}-milo-public"
+  }
 }
 
 resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.this.id
   cidr_block        = var.private_subnet_cidr
   availability_zone = var.availability_zone
+
+  tags = {
+    Name = "${var.environment}-milo-private"
+  }
 }
 
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
+
+  tags = {
+    Name = "${var.environment}-milo-igw"
+  }
 }
 
 resource "aws_route_table" "public" {
@@ -27,6 +42,10 @@ resource "aws_route_table" "public" {
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.this.id
+  }
+
+  tags = {
+    Name = "${var.environment}-milo-public-rt"
   }
 }
 
@@ -40,6 +59,10 @@ resource "aws_route_table_association" "public" {
 # internet access by design.
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.this.id
+
+  tags = {
+    Name = "${var.environment}-milo-private-rt"
+  }
 }
 
 resource "aws_route_table_association" "private" {

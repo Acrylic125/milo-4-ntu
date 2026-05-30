@@ -1,3 +1,8 @@
+variable "environment" {
+  description = "Environment name used in resource naming."
+  type        = string
+}
+
 variable "availability_zone" {
   description = "Availability Zone for both the public and private subnets."
   type        = string

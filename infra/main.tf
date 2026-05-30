@@ -8,6 +8,7 @@ locals {
 module "vpc" {
   source = "./modules/vpc"
 
+  environment         = var.environment
   availability_zone   = var.availability_zone
   vpc_cidr            = var.vpc_cidr
   public_subnet_cidr  = var.public_subnet_cidr

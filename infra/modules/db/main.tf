@@ -56,6 +56,10 @@ resource "aws_security_group" "ecs_instance" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "${local.name_prefix}-instance-sg"
+  }
 }
 
 resource "aws_iam_role" "ecs_instance" {
@@ -91,11 +95,19 @@ resource "aws_iam_role_policy_attachment" "task_execution" {
 resource "aws_cloudwatch_log_group" "this" {
   name              = local.log_group_name
   retention_in_days = 30
+
+  tags = {
+    Name = local.log_group_name
+  }
 }
 
 resource "aws_secretsmanager_secret" "connection_string" {
   name        = local.connection_string_secret_name
   description = "Connection string for the ${local.name_prefix} PostgreSQL instance."
+
+  tags = {
+    Name = local.connection_string_secret_name
+  }
 }
 
 resource "aws_secretsmanager_secret_version" "connection_string" {
@@ -112,6 +124,10 @@ resource "aws_secretsmanager_secret_version" "connection_string" {
 
 resource "aws_ecs_cluster" "this" {
   name = local.cluster_name
+
+  tags = {
+    Name = local.cluster_name
+  }
 }
 
 resource "aws_instance" "this" {
@@ -211,6 +227,10 @@ resource "aws_ecs_task_definition" "this" {
     host_path = local.data_mount_path
   }
 
+  tags = {
+    Name = local.task_family
+  }
+
   container_definitions = jsonencode([
     {
       name              = "postgres"
@@ -306,6 +326,10 @@ resource "aws_ecs_service" "this" {
   launch_type                        = "EC2"
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
+
+  tags = {
+    Name = local.service_name
+  }
 
   depends_on = [aws_instance.this, aws_ec2_instance_state.this]
 }

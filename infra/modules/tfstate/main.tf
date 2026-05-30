@@ -3,6 +3,10 @@ resource "aws_s3_bucket" "this" {
 
   # Bucket holds critical state; require an explicit empty + destroy.
   force_destroy = false
+
+  tags = {
+    Name = var.bucket_name
+  }
 }
 
 resource "aws_s3_bucket_versioning" "this" {

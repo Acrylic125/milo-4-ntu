@@ -86,7 +86,7 @@ Tags are applied via `default_tags` on the AWS provider — every resource in a 
 | `env` | `prd` (from `var.environment`) |
 | `service` | `tfstate` for the bootstrap stack, `milo-app` for everything in `infra/` |
 
-No per-resource tags (`Name`, `Tier`, etc.) are applied. **Consequence:** VPC, subnets, the Internet Gateway, and route tables will appear in the AWS Console without a friendly display name (just IDs). Resources that have a native name attribute — the S3 bucket (`milo-terraform-state`) and the ECR repositories (`<env>-milo-web`, `<env>-milo-backend`) — still display correctly.
+Every taggable resource also sets its own `Name` tag so it has a friendly display name in the AWS Console (subnets, route tables, the Internet Gateway, the EC2 host, the ECS cluster/service/task definition, the security group, the CloudWatch log group, the Secrets Manager secret, the ECR repositories, and the Terraform state bucket). IAM roles, instance profiles, route table associations, secret versions, and other untaggable / non-display resources are not tagged.
 
 ## Adding a new environment
 

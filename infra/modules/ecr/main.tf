@@ -9,4 +9,8 @@ resource "aws_ecr_repository" "this" {
   encryption_configuration {
     encryption_type = var.encryption_type
   }
+
+  tags = {
+    Name = var.repository_name
+  }
 }
