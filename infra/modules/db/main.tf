@@ -252,6 +252,10 @@ resource "aws_ecs_task_definition" "this" {
           value = var.postgres_password
         },
         {
+          name  = "POSTGRESQL_POSTGRES_PASSWORD"
+          value = var.postgres_password
+        },
+        {
           name  = "POSTGRESQL_PORT_NUMBER"
           value = tostring(var.postgres_port)
         }
@@ -289,33 +293,54 @@ resource "aws_ecs_task_definition" "this" {
         }
       }
     },
-    # {
-    #   name              = "cloudflared"
-    #   image             = local.cloudflared_image
-    #   essential         = true
-    #   memoryReservation = 64
-    #   dependsOn = [
-    #     {
-    #       containerName = "postgres"
-    #       condition     = "HEALTHY"
-    #     }
-    #   ]
-    #   command = [
-    #     "tunnel",
-    #     "--no-autoupdate",
-    #     "run",
-    #     "--token",
-    #     var.cloudflared_tunnel_token
-    #   ]
-    #   logConfiguration = {
-    #     logDriver = "awslogs"
-    #     options = {
-    #       awslogs-group         = aws_cloudwatch_log_group.this.name
-    #       awslogs-region        = var.aws_region
-    #       awslogs-stream-prefix = "cloudflared"
-    #     }
-    #   }
-    # }
+    # Bootstrapping, used for enabling the vector extension
+    {
+      name              = "bootstrap"
+      image             = local.postgres_image
+      essential         = false
+      memoryReservation = 32
+      dependsOn = [
+        {
+          containerName = "postgres"
+          condition     = "HEALTHY"
+        }
+      ]
+      environment = [
+        {
+          name  = "PGHOST"
+          value = "127.0.0.1"
+        },
+        {
+          name  = "PGPORT"
+          value = tostring(var.postgres_port)
+        },
+        {
+          name  = "PGUSER"
+          value = "postgres"
+        },
+        {
+          name  = "PGPASSWORD"
+          value = var.postgres_password
+        },
+        {
+          name  = "PGDATABASE"
+          value = var.postgres_database
+        }
+      ]
+      command = [
+        "bash",
+        "-ec",
+        "psql -v ON_ERROR_STOP=1 -c 'CREATE EXTENSION IF NOT EXISTS vector;'"
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.this.name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "bootstrap"
+        }
+      }
+    },
   ])
 }
 

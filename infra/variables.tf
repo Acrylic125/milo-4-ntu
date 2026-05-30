@@ -42,13 +42,13 @@ variable "private_subnet_cidr" {
 variable "db" {
   description = "Configuration for the PostgreSQL ECS workload."
   type = object({
-    postgres_database            = optional(string, "milo")
-    postgres_username            = optional(string, "milo")
-    postgres_password            = string
-    postgres_port                = optional(number, 5432)
-    data_volume_size_gib         = optional(number, 20)
+    postgres_database             = optional(string, "milo")
+    postgres_username             = optional(string, "milo")
+    postgres_password             = string
+    postgres_port                 = optional(number, 5432)
+    data_volume_size_gib          = optional(number, 20)
     connection_string_secret_name = optional(string)
-    cloudflared_tunnel_token     = string
+    cloudflared_tunnel_token      = string
   })
 
   sensitive = true
