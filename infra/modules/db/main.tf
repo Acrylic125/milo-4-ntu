@@ -47,7 +47,8 @@ resource "aws_security_group" "ecs_instance" {
     from_port   = var.postgres_port
     to_port     = var.postgres_port
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
+    # TODO: Remove later, use 0.0.0.0/0 temporarily
+    cidr_blocks = [var.vpc_cidr, "0.0.0.0/0"]
   }
 
   egress {
@@ -111,7 +112,7 @@ resource "aws_secretsmanager_secret" "connection_string" {
 }
 
 resource "aws_secretsmanager_secret_version" "connection_string" {
-  secret_id     = aws_secretsmanager_secret.connection_string.id
+  secret_id = aws_secretsmanager_secret.connection_string.id
   secret_string = format(
     "postgresql://%s:%s@%s:%d/%s",
     var.postgres_username,
@@ -135,7 +136,7 @@ resource "aws_instance" "this" {
   instance_type          = local.instance_type
   subnet_id              = var.public_subnet_id
   vpc_security_group_ids = [aws_security_group.ecs_instance.id]
-  iam_instance_profile = aws_iam_instance_profile.ecs_instance.name
+  iam_instance_profile   = aws_iam_instance_profile.ecs_instance.name
 
   associate_public_ip_address = true
 
@@ -288,33 +289,33 @@ resource "aws_ecs_task_definition" "this" {
         }
       }
     },
-    {
-      name              = "cloudflared"
-      image             = local.cloudflared_image
-      essential         = true
-      memoryReservation = 64
-      dependsOn = [
-        {
-          containerName = "postgres"
-          condition     = "HEALTHY"
-        }
-      ]
-      command = [
-        "tunnel",
-        "--no-autoupdate",
-        "run",
-        "--token",
-        var.cloudflared_tunnel_token
-      ]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.this.name
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "cloudflared"
-        }
-      }
-    }
+    # {
+    #   name              = "cloudflared"
+    #   image             = local.cloudflared_image
+    #   essential         = true
+    #   memoryReservation = 64
+    #   dependsOn = [
+    #     {
+    #       containerName = "postgres"
+    #       condition     = "HEALTHY"
+    #     }
+    #   ]
+    #   command = [
+    #     "tunnel",
+    #     "--no-autoupdate",
+    #     "run",
+    #     "--token",
+    #     var.cloudflared_tunnel_token
+    #   ]
+    #   logConfiguration = {
+    #     logDriver = "awslogs"
+    #     options = {
+    #       awslogs-group         = aws_cloudwatch_log_group.this.name
+    #       awslogs-region        = var.aws_region
+    #       awslogs-stream-prefix = "cloudflared"
+    #     }
+    #   }
+    # }
   ])
 }
 
