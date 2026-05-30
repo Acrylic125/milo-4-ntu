@@ -5,6 +5,7 @@ locals {
   task_family                   = "${local.name_prefix}-task"
   log_group_name                = "/ecs/${local.name_prefix}"
   data_mount_path               = "/mnt/postgresql-data"
+  data_volume_device_name       = "/dev/sdf"
   instance_type                 = "t4g.micro"
   postgres_image                = "bitnami/postgresql:latest"
   cloudflared_image             = "cloudflare/cloudflared:latest"
@@ -13,6 +14,10 @@ locals {
 
 data "aws_ssm_parameter" "ecs_optimized_ami" {
   name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/arm64/recommended/image_id"
+}
+
+data "aws_subnet" "public" {
+  id = var.public_subnet_id
 }
 
 data "aws_iam_policy_document" "ecs_instance_assume_role" {
@@ -131,6 +136,17 @@ resource "aws_ecs_cluster" "this" {
   }
 }
 
+resource "aws_ebs_volume" "postgres_data" {
+  availability_zone = data.aws_subnet.public.availability_zone
+  encrypted         = true
+  size              = var.data_volume_size_gib
+  type              = "gp3"
+
+  tags = {
+    Name = "${local.name_prefix}-postgres-data"
+  }
+}
+
 resource "aws_instance" "this" {
   ami                    = data.aws_ssm_parameter.ecs_optimized_ami.value
   instance_type          = local.instance_type
@@ -139,14 +155,6 @@ resource "aws_instance" "this" {
   iam_instance_profile   = aws_iam_instance_profile.ecs_instance.name
 
   associate_public_ip_address = true
-
-  ebs_block_device {
-    device_name           = "/dev/sdf"
-    delete_on_termination = true
-    encrypted             = true
-    volume_size           = var.data_volume_size_gib
-    volume_type           = "gp3"
-  }
 
   metadata_options {
     http_endpoint = "enabled"
@@ -163,25 +171,22 @@ resource "aws_instance" "this" {
     ECS_CLUSTER=${local.cluster_name}
     EOC
 
-    ROOT_PARTITION="$(findmnt -n -o SOURCE /)"
-    ROOT_DISK="/dev/$(lsblk -no PKNAME "$ROOT_PARTITION")"
+    TARGET_VOLUME_ID="${aws_ebs_volume.postgres_data.id}"
+    TARGET_VOLUME_SERIAL="${replace(aws_ebs_volume.postgres_data.id, "-", "")}"
     DATA_DEVICE=""
 
-    for candidate in /dev/nvme*n1 /dev/xvd[f-p] /dev/sd[f-p]; do
-      if [ ! -b "$candidate" ]; then
-        continue
+    for _ in $(seq 1 120); do
+      DATA_DEVICE="$(lsblk -ndo PATH,SERIAL | awk -v serial="$TARGET_VOLUME_SERIAL" '$2 == serial { print $1; exit }')"
+
+      if [ -n "$DATA_DEVICE" ] && [ -b "$DATA_DEVICE" ]; then
+        break
       fi
 
-      if [ "$candidate" = "$ROOT_DISK" ]; then
-        continue
-      fi
-
-      DATA_DEVICE="$candidate"
-      break
+      sleep 2
     done
 
     if [ -z "$DATA_DEVICE" ]; then
-      echo "Unable to locate the PostgreSQL data volume." >&2
+      echo "Unable to locate PostgreSQL data volume $TARGET_VOLUME_ID." >&2
       exit 1
     fi
 
@@ -205,6 +210,13 @@ resource "aws_instance" "this" {
   tags = {
     Name = local.name_prefix
   }
+}
+
+resource "aws_volume_attachment" "postgres_data" {
+  device_name                    = local.data_volume_device_name
+  instance_id                    = aws_instance.this.id
+  volume_id                      = aws_ebs_volume.postgres_data.id
+  stop_instance_before_detaching = true
 }
 
 resource "aws_ec2_instance_state" "this" {
@@ -357,5 +369,5 @@ resource "aws_ecs_service" "this" {
     Name = local.service_name
   }
 
-  depends_on = [aws_instance.this, aws_ec2_instance_state.this]
+  depends_on = [aws_instance.this, aws_volume_attachment.postgres_data, aws_ec2_instance_state.this]
 }
