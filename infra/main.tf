@@ -49,7 +49,7 @@ module "db" {
   postgres_port                 = var.db.postgres_port
   data_volume_size_gib          = var.db.data_volume_size_gib
   connection_string_secret_name = try(var.db.connection_string_secret_name, null)
-  cloudflared_tunnel_token      = var.db.cloudflared_tunnel_token
+  # cloudflared_tunnel_token      = var.db.cloudflared_tunnel_token
 }
 
 # Shared Fargate cluster that hosts both the web and backend services.

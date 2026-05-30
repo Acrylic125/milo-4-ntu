@@ -69,11 +69,11 @@ variable "data_volume_size_gib" {
   }
 }
 
-variable "cloudflared_tunnel_token" {
-  description = "Cloudflare tunnel token used by the cloudflared sidecar."
-  type        = string
-  sensitive   = true
-}
+# variable "cloudflared_tunnel_token" {
+#   description = "Cloudflare tunnel token used by the cloudflared sidecar."
+#   type        = string
+#   sensitive   = true
+# }
 
 variable "connection_string_secret_name" {
   description = "Optional override for the connection string secret name."
