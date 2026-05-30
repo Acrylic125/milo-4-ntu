@@ -171,6 +171,9 @@ resource "aws_instance" "this" {
     ECS_CLUSTER=${local.cluster_name}
     EOC
 
+    # Keep the ECS agent from starting tasks until the data volume is mounted.
+    systemctl stop ecs || true
+
     TARGET_VOLUME_ID="${aws_ebs_volume.postgres_data.id}"
     TARGET_VOLUME_SERIAL="${replace(aws_ebs_volume.postgres_data.id, "-", "")}"
     DATA_DEVICE=""
@@ -204,6 +207,7 @@ resource "aws_instance" "this" {
     mount -a
     chown 1001:1001 ${local.data_mount_path}
     chmod 700 ${local.data_mount_path}
+    systemctl start ecs
     EOF
   )
 
@@ -364,6 +368,7 @@ resource "aws_ecs_service" "this" {
   launch_type                        = "EC2"
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
+  wait_for_steady_state              = true
 
   tags = {
     Name = local.service_name
