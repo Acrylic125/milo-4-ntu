@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleUserRound, FlaskConical, LogIn, LogOut } from "lucide-react";
+import { CircleUserRound, FlaskConical, LogOut } from "lucide-react";
 
+import { GetStarted } from "@/components/get-started";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -39,15 +40,6 @@ export function SiteHeader({ className }: SiteHeaderProps) {
   const email = session?.user.email ?? "";
   const avatarUrl = getInitialsAvatarUrl(displayName, 64);
   const isBusy = isPending || isSessionPending;
-
-  function handleMicrosoftSignIn() {
-    startTransition(async () => {
-      await authClient.signIn.social({
-        provider: "microsoft",
-        callbackURL: "/",
-      });
-    });
-  }
 
   function handleSignOut() {
     startTransition(async () => {
@@ -134,15 +126,12 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                   variant="destructive"
                 >
                   <LogOut />
-                  Sign out
+                  Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button size="sm" onClick={handleMicrosoftSignIn} disabled={isBusy}>
-              <LogIn className="size-3.5" />
-              Continue with Microsoft
-            </Button>
+            <GetStarted />
           )}
         </nav>
       </div>

@@ -44,7 +44,7 @@ export default function RootLayout({
         jetbrainsMono.variable
       )}
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="flex flex-col font-sans">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TRPCReactProvider>
             <SiteHeader />

@@ -47,7 +47,7 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  --spacing-ui: 1920px;
+  --spacing-ui: 2048px;
 }
 
 :root {
@@ -134,6 +134,10 @@
 .h-navbar {
   @apply h-12 md:h-14;
 }
+
+/* .h-usable {
+  @apply h-[calc(100svh-3rem)] md:h-[calc(100svh-3.5rem)];
+} */
 
 /* .max-w-ui {
   @apply max-w-[1920px];

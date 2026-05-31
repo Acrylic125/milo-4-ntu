@@ -114,7 +114,7 @@ export const profileRoleEnum = pgEnum("profile_role", [
 ]);
 
 export const userSearchProfile = pgTable(
-  "profiles",
+  "user_search_profiles",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     userId: text("user_id")
