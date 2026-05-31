@@ -4,17 +4,17 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { patents, profiles } from "@/db/schema";
-import { getAssumedUserId } from "@/lib/auth-cookie";
+import { patents, userSearchProfile } from "@/db/schema";
+import { getCurrentProfileIdForUser } from "@/lib/current-profile";
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
 
 const profileColumns = {
-  id: profiles.id,
-  name: profiles.name,
-  email: profiles.email,
-  contact: profiles.contact,
-  role: profiles.role,
-  tags: profiles.tags,
+  id: userSearchProfile.id,
+  name: userSearchProfile.name,
+  email: userSearchProfile.email,
+  contact: userSearchProfile.contact,
+  role: userSearchProfile.role,
+  tags: userSearchProfile.tags,
 } as const;
 
 type RecommendationRow = {
@@ -32,16 +32,19 @@ type RecommendationRow = {
 
 export const profilesRouter = createTRPCRouter({
   list: publicProcedure.query(async () => {
-    return db.select(profileColumns).from(profiles).orderBy(profiles.name);
+    return db
+      .select(profileColumns)
+      .from(userSearchProfile)
+      .orderBy(userSearchProfile.name);
   }),
 
-  current: publicProcedure.query(async () => {
-    const id = await getAssumedUserId();
+  current: publicProcedure.query(async ({ ctx }) => {
+    const id = await getCurrentProfileIdForUser(ctx.session?.user);
     if (!id) return null;
     const [row] = await db
       .select(profileColumns)
-      .from(profiles)
-      .where(eq(profiles.id, id))
+      .from(userSearchProfile)
+      .where(eq(userSearchProfile.id, id))
       .limit(1);
     return row ?? null;
   }),
@@ -72,9 +75,9 @@ export const profilesRouter = createTRPCRouter({
         })
         .optional()
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const limit = input?.limit ?? 20;
-      const viewerId = await getAssumedUserId();
+      const viewerId = await getCurrentProfileIdForUser(ctx.session?.user);
       if (!viewerId) return [];
 
       const rows = await db.execute<RecommendationRow>(sql`
@@ -97,7 +100,7 @@ export const profilesRouter = createTRPCRouter({
           SELECT cp.profile_id,
                  MAX(1 - (cp.embedding <=> v.looking_for_embedding)) AS score
           FROM candidate_patents cp
-          JOIN ${profiles} v
+          JOIN ${userSearchProfile} v
             ON v.id = ${viewerId}
            AND v.looking_for_embedding IS NOT NULL
           GROUP BY cp.profile_id
@@ -121,7 +124,7 @@ export const profilesRouter = createTRPCRouter({
             COALESCE(lf.score, -1)
           ) AS similarity,
           COALESCE(pc.patent_count, 0) AS patent_count
-        FROM ${profiles} p
+        FROM ${userSearchProfile} p
         INNER JOIN patent_counts pc ON pc.profile_id = p.id
         LEFT JOIN patent_pair pp ON pp.profile_id = p.id
         LEFT JOIN looking_for_match lf ON lf.profile_id = p.id

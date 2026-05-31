@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArrowLeft, Mail, Phone, SquareArrowOutUpRight } from "lucide-react";
 
 import { RoleBadge } from "@/components/role-badge";
-import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { db } from "@/db";
-import { patents, profiles } from "@/db/schema";
+import { patents, userSearchProfile } from "@/db/schema";
 
 type ProfilePageProps = {
   params: Promise<{ id: string }>;
@@ -29,7 +28,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   if (!profile) {
     return (
       <div className="flex min-h-full flex-col">
-        <SiteHeader />
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-16 sm:px-6">
           <Card>
             <CardHeader>
@@ -54,8 +52,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   return (
     <div className="flex min-h-full flex-col">
-      <SiteHeader />
-
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6">
         <Button variant="ghost" size="xs" asChild className="-ml-2 mb-6 w-fit">
           <Link href="/">
@@ -172,15 +168,15 @@ async function loadProfile(id: string) {
   const [profileRow, patentRow] = await Promise.all([
     db
       .select({
-        id: profiles.id,
-        name: profiles.name,
-        email: profiles.email,
-        contact: profiles.contact,
-        role: profiles.role,
-        tags: profiles.tags,
+        id: userSearchProfile.id,
+        name: userSearchProfile.name,
+        email: userSearchProfile.email,
+        contact: userSearchProfile.contact,
+        role: userSearchProfile.role,
+        tags: userSearchProfile.tags,
       })
-      .from(profiles)
-      .where(eq(profiles.id, id))
+      .from(userSearchProfile)
+      .where(eq(userSearchProfile.id, id))
       .limit(1),
     db
       .select({

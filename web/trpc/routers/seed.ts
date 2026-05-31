@@ -4,10 +4,13 @@ import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { patents, profiles } from "@/db/schema";
+import { patents, userSearchProfile } from "@/db/schema";
 import { embedTechOffer } from "@/lib/embedding";
 import { collectAllListingUrls } from "@/lib/scrape-ntu-listing";
-import { scrapeNtuTechOffer, type ScrapedTechOffer } from "@/lib/scrape-ntu-tech";
+import {
+  scrapeNtuTechOffer,
+  type ScrapedTechOffer,
+} from "@/lib/scrape-ntu-tech";
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
 
 const SEED_EMAIL_DOMAIN = "ntu-tech-portal.seed";
@@ -165,11 +168,16 @@ export const seedRouter = createTRPCRouter({
         emails.length === 0
           ? []
           : await db
-              .select({ id: profiles.id, email: profiles.email })
-              .from(profiles)
-              .where(inArray(profiles.email, emails));
+              .select({
+                id: userSearchProfile.id,
+                email: userSearchProfile.email,
+              })
+              .from(userSearchProfile)
+              .where(inArray(userSearchProfile.email, emails));
 
-      const profileIdByEmail = new Map(existing.map((row) => [row.email, row.id]));
+      const profileIdByEmail = new Map(
+        existing.map((row) => [row.email, row.id])
+      );
 
       const toCreate = Array.from(inventorsByEmail.values()).filter(
         (bucket) => !profileIdByEmail.has(bucket.email)
@@ -178,7 +186,7 @@ export const seedRouter = createTRPCRouter({
       let profilesCreated = 0;
       if (toCreate.length > 0) {
         const inserted = await db
-          .insert(profiles)
+          .insert(userSearchProfile)
           .values(
             toCreate.map((bucket) => ({
               name: bucket.name,
@@ -187,7 +195,10 @@ export const seedRouter = createTRPCRouter({
               role: "researcher" as const,
             }))
           )
-          .returning({ id: profiles.id, email: profiles.email });
+          .returning({
+            id: userSearchProfile.id,
+            email: userSearchProfile.email,
+          });
 
         for (const row of inserted) {
           profileIdByEmail.set(row.email, row.id);
@@ -274,9 +285,9 @@ export const seedRouter = createTRPCRouter({
    */
   status: publicProcedure.query(async () => {
     const seedProfiles = await db
-      .select({ id: profiles.id })
-      .from(profiles)
-      .where(eq(profiles.contact, SEED_CONTACT));
+      .select({ id: userSearchProfile.id })
+      .from(userSearchProfile)
+      .where(eq(userSearchProfile.contact, SEED_CONTACT));
 
     const profileIds = seedProfiles.map((row) => row.id);
     const patentCount =

@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
   FlaskConical,
   GraduationCap,
   Link2,
+  LogIn,
 } from "lucide-react";
 
-import { SiteHeader } from "@/components/site-header";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import {
   NTU_TECH_OFFER_PREFIX,
@@ -42,8 +44,6 @@ import {
   type OnboardRole,
 } from "@/lib/onboard-schema";
 import { onboardResolver } from "@/lib/onboard-resolver";
-import { saveCurrentProfile } from "@/lib/profile-storage";
-import { assumeUser } from "@/lib/auth-actions";
 import { useTRPC } from "@/trpc/client";
 
 type Step = 1 | 2 | 3;
@@ -75,6 +75,11 @@ export default function OnboardPage() {
   const trpc = useTRPC();
   const [step, setStep] = useState<Step>(1);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
+  const currentProfileQuery = useQuery({
+    ...trpc.profiles.current.queryOptions(),
+    enabled: !!session,
+  });
 
   const submitMutation = useMutation(trpc.onboard.submit.mutationOptions());
 
@@ -103,6 +108,29 @@ export default function OnboardPage() {
   } = form;
 
   const role = useWatch({ control, name: "role" });
+  const currentProfile = currentProfileQuery.data ?? null;
+
+  useEffect(() => {
+    if (!session?.user.email) {
+      return;
+    }
+
+    if (getValues("email")) {
+      return;
+    }
+
+    setValue("email", session.user.email, {
+      shouldDirty: false,
+      shouldTouch: false,
+    });
+  }, [getValues, session?.user.email, setValue]);
+
+  function handleMicrosoftSignIn() {
+    void authClient.signIn.social({
+      provider: "microsoft",
+      callbackURL: "/onboard",
+    });
+  }
 
   function applyZodIssues(
     issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }>
@@ -144,10 +172,13 @@ export default function OnboardPage() {
   async function onSubmit(values: OnboardFormValues) {
     setSubmitError(null);
 
-    let result: { profileId: string; patentCount: number };
     try {
+      if (!session) {
+        throw new Error("Sign in with Microsoft before joining the network.");
+      }
+
       if (values.role === "researcher") {
-        result = await submitMutation.mutateAsync({
+        await submitMutation.mutateAsync({
           role: "researcher",
           email: values.email,
           contact: values.contact,
@@ -155,7 +186,7 @@ export default function OnboardPage() {
           problemSolving: values.problemSolving,
         });
       } else {
-        result = await submitMutation.mutateAsync({
+        await submitMutation.mutateAsync({
           role: "student",
           email: values.email,
           contact: values.contact,
@@ -169,26 +200,6 @@ export default function OnboardPage() {
           : "Something went wrong while submitting. Please try again."
       );
       return;
-    }
-
-    const lookingFor =
-      values.role === "researcher"
-        ? values.problemSolving
-        : values.interestedIn;
-    const linksRaw = values.role === "researcher" ? values.myWork : "";
-
-    saveCurrentProfile({
-      email: values.email,
-      contact: values.contact,
-      linksRaw,
-      lookingFor,
-      role: values.role,
-    });
-
-    try {
-      await assumeUser(result.profileId);
-    } catch {
-      // Cookie failure shouldn't block redirect; user can re-assume from header.
     }
 
     router.replace("/");
@@ -409,11 +420,85 @@ export default function OnboardPage() {
   // but we also use it here to keep the step indicator honest about what the
   // form considers a valid role selection.
   const hasValidRole = onboardStepRoleSchema.safeParse({ role }).success;
+  const isCheckingProfile = !!session && currentProfileQuery.isPending;
+
+  if (isSessionPending || isCheckingProfile) {
+    return (
+      <div className="flex min-h-full flex-col">
+        <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-sans">Checking your account</CardTitle>
+              <CardDescription>
+                We&apos;re confirming your Microsoft session before onboarding.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="flex min-h-full flex-col">
+        <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-sans">Sign in first</CardTitle>
+              <CardDescription>
+                Microsoft sign-in now powers onboarding, so we can attach your
+                profile to a real account instead of a temporary browser cookie.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="justify-between">
+              <Button variant="outline" asChild>
+                <Link href="/">
+                  <ArrowLeft />
+                  Back to discover
+                </Link>
+              </Button>
+              <Button onClick={handleMicrosoftSignIn}>
+                <LogIn />
+                Continue with Microsoft
+              </Button>
+            </CardFooter>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  if (currentProfile) {
+    return (
+      <div className="flex min-h-full flex-col">
+        <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-sans">You&apos;re already onboarded</CardTitle>
+              <CardDescription>
+                Your Microsoft account is already linked to a Milo profile.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="justify-between">
+              <Button variant="outline" asChild>
+                <Link href="/">
+                  <ArrowLeft />
+                  Back to discover
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href={`/profile/${currentProfile.id}`}>View my profile</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-full flex-col">
-      <SiteHeader />
-
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-10 sm:px-6">
         <div className="mb-6 space-y-2">
           <Button variant="ghost" size="xs" asChild className="-ml-2 w-fit">
@@ -429,6 +514,9 @@ export default function OnboardPage() {
           <h1 className="font-sans text-2xl font-medium tracking-tight">
             Join the Milo network
           </h1>
+          <p className="text-xs text-muted-foreground">
+            Signed in as {session.user.email ?? session.user.name ?? "Microsoft user"}
+          </p>
         </div>
 
         <Card>

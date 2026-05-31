@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CircleUserRound, ExternalLink, Search, Sparkles } from "lucide-react";
 
 import { RoleBadge } from "@/components/role-badge";
-import { SiteHeader } from "@/components/site-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -72,8 +70,6 @@ export function HomePage() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <SiteHeader />
-
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
         {/* <section className="mb-10">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
@@ -109,12 +105,12 @@ export function HomePage() {
         {!viewer && (
           <Alert className="mb-8">
             <CircleUserRound />
-            <AlertTitle>Assume a user to unlock recommendations</AlertTitle>
+            <AlertTitle>Sign in to unlock recommendations</AlertTitle>
             <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                Pick a profile from the &ldquo;Assume user&rdquo; menu in the
-                header, or onboard a new one — patents will then rank by
-                embedding similarity against your patents and interests.
+                Continue with Microsoft in the header, then finish onboarding to
+                rank patents by embedding similarity against your work and
+                interests.
               </span>
               <Button size="sm" asChild className="shrink-0">
                 <Link href="/onboard">Start onboarding</Link>

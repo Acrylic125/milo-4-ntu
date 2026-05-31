@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Database, Sparkles, Terminal } from "lucide-react";
 
-import { SiteHeader } from "@/components/site-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,8 +37,6 @@ export default function SeedPage() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <SiteHeader />
-
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-10 sm:px-6">
         <div className="mb-6 space-y-2">
           <Button variant="ghost" size="xs" asChild className="-ml-2 w-fit">

@@ -4,11 +4,12 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { patents, profiles } from "@/db/schema";
+import { patents, userSearchProfile } from "@/db/schema";
+import { getCurrentProfileIdForUser } from "@/lib/current-profile";
 import { embedTechOffer, embedText } from "@/lib/embedding";
 import { NTU_TECH_OFFER_PREFIX } from "@/lib/onboard-schema";
 import { scrapeNtuTechOffer } from "@/lib/scrape-ntu-tech";
-import { createTRPCRouter, publicProcedure } from "@/trpc/init";
+import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 
 const ntuTechLink = z
   .url("Each link must be a valid URL")
@@ -46,7 +47,10 @@ const researcherInput = z.object({
     .min(20, "Tell us a bit more about the problem you are trying to solve"),
 });
 
-const submitInput = z.discriminatedUnion("role", [studentInput, researcherInput]);
+const submitInput = z.discriminatedUnion("role", [
+  studentInput,
+  researcherInput,
+]);
 
 const submitOutput = z.object({
   profileId: z.string().uuid(),
@@ -64,10 +68,20 @@ function displayNameFromEmail(email: string): string {
 }
 
 export const onboardRouter = createTRPCRouter({
-  submit: publicProcedure
+  submit: protectedProcedure
     .input(submitInput)
     .output(submitOutput)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const existingProfileId = await getCurrentProfileIdForUser(
+        ctx.session.user
+      );
+      if (existingProfileId) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Your account already has a profile.",
+        });
+      }
+
       // `lookingFor` carries the descriptive blob we embed for similarity
       // search — it's the student's "interested in" or the researcher's
       // "problem I am trying to solve" paragraph, depending on role.
@@ -76,8 +90,7 @@ export const onboardRouter = createTRPCRouter({
 
       // Researchers also paste NTU tech-portal links (from the "My work"
       // textarea) that we scrape into patent rows. Students don't have any.
-      const researcherLinks =
-        input.role === "researcher" ? input.links : [];
+      const researcherLinks = input.role === "researcher" ? input.links : [];
 
       // Scrape + embed everything before touching the DB so a failure aborts
       // cleanly with no half-written profile.
@@ -99,16 +112,20 @@ export const onboardRouter = createTRPCRouter({
 
       try {
         const [profile] = await db
-          .insert(profiles)
+          .insert(userSearchProfile)
           .values({
-            name: input.name ?? displayNameFromEmail(input.email),
+            userId: ctx.session.user.id,
+            name:
+              input.name ??
+              ctx.session.user.name ??
+              displayNameFromEmail(input.email),
             email: input.email,
             contact: input.contact,
             role: input.role,
             lookingFor,
             lookingForEmbedding: lookingForEmbedding ?? undefined,
           })
-          .returning({ id: profiles.id });
+          .returning({ id: userSearchProfile.id });
 
         if (!profile) {
           throw new TRPCError({

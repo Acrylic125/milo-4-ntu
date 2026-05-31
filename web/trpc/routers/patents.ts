@@ -4,8 +4,8 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { patents, profiles } from "@/db/schema";
-import { getAssumedUserId } from "@/lib/auth-cookie";
+import { patents, userSearchProfile } from "@/db/schema";
+import { getCurrentProfileIdForUser } from "@/lib/current-profile";
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
 
 type Researcher = {
@@ -70,7 +70,7 @@ export const patentsRouter = createTRPCRouter({
         MAX(pat.title) AS title,
         ${RESEARCHER_AGG} AS researchers
       FROM ${patents} pat
-      JOIN ${profiles} p ON p.id = pat.profile_id
+      JOIN ${userSearchProfile} p ON p.id = pat.profile_id
       GROUP BY pat.links
       ORDER BY MAX(pat.title)
     `);
@@ -104,9 +104,9 @@ export const patentsRouter = createTRPCRouter({
         })
         .optional()
     )
-    .query(async ({ input }): Promise<PatentRow[]> => {
+    .query(async ({ ctx, input }): Promise<PatentRow[]> => {
       const limit = input?.limit ?? 50;
-      const viewerId = await getAssumedUserId();
+      const viewerId = await getCurrentProfileIdForUser(ctx.session?.user);
       if (!viewerId) return [];
 
       const rows = await db.execute<RawRecommendationRow>(sql`
@@ -129,7 +129,7 @@ export const patentsRouter = createTRPCRouter({
           SELECT cp.id AS patent_id,
                  (1 - (cp.embedding <=> v.looking_for_embedding)) AS score
           FROM candidate_patents cp
-          JOIN ${profiles} v
+          JOIN ${userSearchProfile} v
             ON v.id = ${viewerId}
            AND v.looking_for_embedding IS NOT NULL
         )
@@ -144,7 +144,7 @@ export const patentsRouter = createTRPCRouter({
             COALESCE(MAX(lf.score), -1)
           ) AS similarity
         FROM candidate_patents cp
-        JOIN ${profiles} p ON p.id = cp.profile_id
+        JOIN ${userSearchProfile} p ON p.id = cp.profile_id
         LEFT JOIN patent_pair pp ON pp.patent_id = cp.id
         LEFT JOIN looking_for_match lf ON lf.patent_id = cp.id
         GROUP BY cp.links
@@ -161,8 +161,7 @@ export const patentsRouter = createTRPCRouter({
         title: row.title,
         researchers: row.researchers ?? [],
         similarity: row.similarity == null ? null : Number(row.similarity),
-        patentMatch:
-          row.patent_match == null ? null : Number(row.patent_match),
+        patentMatch: row.patent_match == null ? null : Number(row.patent_match),
         lookingForMatch:
           row.looking_for_match == null ? null : Number(row.looking_for_match),
       }));
