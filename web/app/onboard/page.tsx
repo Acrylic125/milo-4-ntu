@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { OnboardPage } from "@/components/onboard-page";
 import { getCurrentProfileIdForUser } from "@/lib/current-profile";
 import { getSession } from "@/lib/session";
 import { OnboardForm } from "@/components/onboard-form";

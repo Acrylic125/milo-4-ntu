@@ -18,6 +18,7 @@ type PatentListRow = {
   link: string;
   title: string;
   researchers: Researcher[];
+  similarity: number | null;
 };
 
 type PatentRow = {

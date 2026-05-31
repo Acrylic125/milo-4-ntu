@@ -1,30 +1,92 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleUserRound, ExternalLink, Search, Sparkles } from "lucide-react";
+import { ExternalLink, Search, Sparkles } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { RoleBadge } from "@/components/role-badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useTRPC } from "@/trpc/client";
+import { useQueryState } from "nuqs";
+
+export function SearchBar() {
+  const [search, setSearch] = useQueryState("search", {
+    shallow: false,
+    throttleMs: 500,
+  });
+
+  return (
+    <Input
+      value={search ?? ""}
+      onChange={(event) => setSearch(event.target.value)}
+      placeholder="What are you looking for?"
+      className="w-full h-fit max-w-4xl px-4 py-2.5 border border-input bg-input/25 shadow-md backdrop-blur-lg rounded-md"
+    />
+  );
+}
+
+export function Patents({
+  patents,
+}: {
+  patents: {
+    link: string;
+    title: string;
+    researchers: {
+      id: string;
+      name: string;
+      role: "student" | "researcher";
+    }[];
+    similarity: number | null;
+  }[];
+}) {
+  // const scrollRef = useRef<HTMLDivElement | null>(null);
+  // const rowVirtualizer = useVirtualizer({
+  //   count: patents.length,
+  //   getScrollElement: () => scrollRef.current,
+  //   estimateSize: () => 78,
+  //   overscan: 8,
+  // });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="px-4">
+        <h1 className="text-lg md:text-xl lg:text-2xl font-medium">Patents</h1>
+      </div>
+      {patents.length === 0 ? (
+        <div className="px-4 text-sm text-muted-foreground">
+          No patents found.
+        </div>
+      ) : (
+        <div className="w-full border border-border">
+          {patents.map((patent) => {
+            return (
+              <div key={patent.link} className="w-full">
+                <PatentRow
+                  title={patent.title}
+                  link={patent.link}
+                  researchers={patent.researchers}
+                  matchScore={patent.similarity ?? undefined}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function HomePage() {
   const trpc = useTRPC();
 
-  const currentQuery = useQuery(trpc.profiles.current.queryOptions());
   const listQuery = useQuery(trpc.patents.list.queryOptions());
   const recommendationsQuery = useQuery(
-    trpc.patents.recommendations.queryOptions(
-      { limit: 100 },
-      { enabled: !!currentQuery.data }
-    )
+    trpc.patents.recommendations.queryOptions({ limit: 100 })
   );
 
-  const viewer = currentQuery.data ?? null;
   const allPatents = useMemo(() => listQuery.data ?? [], [listQuery.data]);
   const recommendations = useMemo(
     () => recommendationsQuery.data ?? [],
@@ -52,12 +114,6 @@ export function HomePage() {
       return haystack.includes(normalizedQuery);
     });
 
-    if (!viewer) return filtered;
-
-    // When a viewer is assumed, rank patents by recommendation similarity
-    // (descending). Patents without a similarity score (e.g. the viewer's
-    // own patents) fall to the bottom and keep their alphabetical ordering
-    // from the API.
     return [...filtered].sort((a, b) => {
       const aScore = recommendationsByLink.get(a.link)?.similarity;
       const bScore = recommendationsByLink.get(b.link)?.similarity;
@@ -66,59 +122,11 @@ export function HomePage() {
       if (bScore == null) return -1;
       return bScore - aScore;
     });
-  }, [allPatents, query, viewer, recommendationsByLink]);
+  }, [allPatents, query, recommendationsByLink]);
 
   return (
     <div className="flex min-h-full flex-col">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
-        {/* <section className="mb-10">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-3">
-              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                Discover collaborators
-              </p>
-
-              <h1 className="max-w-2xl font-sans text-2xl font-medium tracking-tight sm:text-3xl">
-                Find NTU patents that line up with the problem space
-                you&apos;re building in.
-              </h1>
-
-              <p className="max-w-xl text-xs/relaxed text-muted-foreground">
-                Patents are ranked by cosine similarity between their
-                embeddings and your own patents &amp; interests.
-              </p>
-            </div>
-
-            <div className="shrink-0">
-              <Image
-                src="/homepage_gif.gif"
-                alt="Matching animation"
-                width={500}
-                height={100}
-                unoptimized
-                className="rounded-lg"
-              />
-            </div>
-          </div>
-        </section> */}
-
-        {!viewer && (
-          <Alert className="mb-8">
-            <CircleUserRound />
-            <AlertTitle>Sign in to unlock recommendations</AlertTitle>
-            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span>
-                Continue with Microsoft in the header, then finish onboarding to
-                rank patents by embedding similarity against your work and
-                interests.
-              </span>
-              <Button size="sm" asChild className="shrink-0">
-                <Link href="/onboard">Start onboarding</Link>
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
         <section className="space-y-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -129,7 +137,9 @@ export function HomePage() {
                   : `${filteredPatents.length} patent${
                       filteredPatents.length === 1 ? "" : "s"
                     } in the network${
-                      viewer ? " · ranked by embedding similarity" : ""
+                      recommendations.length > 0
+                        ? " · ranked by embedding similarity"
+                        : ""
                     }`}
               </p>
             </div>
@@ -197,8 +207,12 @@ type PatentRowProps = {
 };
 
 function PatentRow({ title, link, researchers, matchScore }: PatentRowProps) {
+  const roundedMatch = Math.max(
+    0,
+    Math.min(100, Math.round((matchScore ?? 0) * 100))
+  );
   return (
-    <li className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+    <div className="flex flex-col gap-3 border-b px-4 py-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex items-start gap-2">
           <a
@@ -239,12 +253,12 @@ function PatentRow({ title, link, researchers, matchScore }: PatentRowProps) {
         )}
       </div>
 
-      {typeof matchScore === "number" && (
+      {roundedMatch > 0 && (
         <span className="inline-flex shrink-0 items-center gap-1 self-start border border-primary/25 bg-primary/5 px-2 py-1 text-[10px] font-medium text-primary sm:self-center">
           <Sparkles className="size-3" />
-          {matchScore}% match
+          {roundedMatch}% match
         </span>
       )}
-    </li>
+    </div>
   );
 }
