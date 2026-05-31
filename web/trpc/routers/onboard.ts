@@ -18,11 +18,9 @@ const ntuTechLink = z
     `Each link must start with ${NTU_TECH_OFFER_PREFIX}`
   );
 
-// Shared fields for every onboarding role.
 const baseInput = {
   email: z.email(),
   contact: z.string().trim().min(2),
-  name: z.string().trim().min(1).optional(),
 };
 
 const studentInput = z.object({
@@ -37,10 +35,7 @@ const studentInput = z.object({
 const researcherInput = z.object({
   ...baseInput,
   role: z.literal("researcher"),
-  // "My work" textarea: parsed NTU tech-portal links that we scrape into
-  // the `patents` table.
   links: z.array(ntuTechLink).min(1, "Add at least one NTU tech-portal link"),
-  // "Problem I am trying to solve" textarea: free text, stored as lookingFor.
   problemSolving: z
     .string()
     .trim()
@@ -57,16 +52,6 @@ const submitOutput = z.object({
   patentCount: z.number().int().nonnegative(),
 });
 
-function displayNameFromEmail(email: string): string {
-  const local = email.split("@")[0] ?? "New member";
-  const formatted = local
-    .split(/[._-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-  return formatted || "New member";
-}
-
 export const onboardRouter = createTRPCRouter({
   submit: protectedProcedure
     .input(submitInput)
@@ -82,18 +67,11 @@ export const onboardRouter = createTRPCRouter({
         });
       }
 
-      // `lookingFor` carries the descriptive blob we embed for similarity
-      // search — it's the student's "interested in" or the researcher's
-      // "problem I am trying to solve" paragraph, depending on role.
       const lookingFor =
         input.role === "researcher" ? input.problemSolving : input.interestedIn;
 
-      // Researchers also paste NTU tech-portal links (from the "My work"
-      // textarea) that we scrape into patent rows. Students don't have any.
       const researcherLinks = input.role === "researcher" ? input.links : [];
 
-      // Scrape + embed everything before touching the DB so a failure aborts
-      // cleanly with no half-written profile.
       const [scraped, lookingForEmbedding] = await Promise.all([
         Promise.all(
           researcherLinks.map(async (url) => {
@@ -111,41 +89,37 @@ export const onboardRouter = createTRPCRouter({
       ]);
 
       try {
-        const [profile] = await db
-          .insert(userSearchProfile)
-          .values({
-            userId: ctx.session.user.id,
-            name:
-              input.name ??
-              ctx.session.user.name ??
-              displayNameFromEmail(input.email),
-            email: input.email,
-            contact: input.contact,
-            role: input.role,
-            lookingFor,
-            lookingForEmbedding: lookingForEmbedding ?? undefined,
-          })
-          .returning({ id: userSearchProfile.id });
+        return await db.transaction(async (tx) => {
+          const [profile] = await tx
+            .insert(userSearchProfile)
+            .values({
+              userId: ctx.session.user.id,
+              role: input.role,
+              lookingFor,
+              lookingForEmbedding: lookingForEmbedding ?? undefined,
+            })
+            .returning({ id: userSearchProfile.id });
 
-        if (!profile) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Could not create profile",
-          });
-        }
+          if (!profile) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Could not create profile",
+            });
+          }
 
-        if (scraped.length > 0) {
-          await db.insert(patents).values(
-            scraped.map(({ offer, embedding }) => ({
-              profileId: profile.id,
-              title: offer.title,
-              links: offer.url,
-              embedding,
-            }))
-          );
-        }
+          if (scraped.length > 0) {
+            await tx.insert(patents).values(
+              scraped.map(({ offer, embedding }) => ({
+                userId: ctx.session.user.id,
+                title: offer.title,
+                links: offer.url,
+                embedding,
+              }))
+            );
+          }
 
-        return { profileId: profile.id, patentCount: scraped.length };
+          return { profileId: profile.id, patentCount: scraped.length };
+        });
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         const message =
@@ -153,7 +127,7 @@ export const onboardRouter = createTRPCRouter({
         if (/duplicate|unique/i.test(message)) {
           throw new TRPCError({
             code: "CONFLICT",
-            message: "A profile with this email already exists.",
+            message: "Your account already has a profile.",
           });
         }
         throw new TRPCError({

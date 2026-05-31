@@ -1,10 +1,10 @@
 import "server-only";
 
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { patents, userSearchProfile } from "@/db/schema";
+import { patents, userSearchProfile, users } from "@/db/schema";
 import { getCurrentProfileIdForUser } from "@/lib/current-profile";
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
 
@@ -49,7 +49,7 @@ const RESEARCHER_AGG = sql`
     JSONB_AGG(
       DISTINCT JSONB_BUILD_OBJECT(
         'id', p.id,
-        'name', p.name,
+        'name', u.name,
         'role', p.role
       )
     ) FILTER (WHERE p.id IS NOT NULL),
@@ -70,7 +70,8 @@ export const patentsRouter = createTRPCRouter({
         MAX(pat.title) AS title,
         ${RESEARCHER_AGG} AS researchers
       FROM ${patents} pat
-      JOIN ${userSearchProfile} p ON p.id = pat.profile_id
+      JOIN ${userSearchProfile} p ON p.user_id = pat.user_id
+      JOIN ${users} u ON u.id = pat.user_id
       GROUP BY pat.links
       ORDER BY MAX(pat.title)
     `);
@@ -109,11 +110,19 @@ export const patentsRouter = createTRPCRouter({
       const viewerId = await getCurrentProfileIdForUser(ctx.session?.user);
       if (!viewerId) return [];
 
+      const [viewerProfile] = await db
+        .select({ userId: userSearchProfile.userId })
+        .from(userSearchProfile)
+        .where(eq(userSearchProfile.id, viewerId))
+        .limit(1);
+
+      if (!viewerProfile?.userId) return [];
+
       const rows = await db.execute<RawRecommendationRow>(sql`
         WITH candidate_patents AS (
-          SELECT cp.id, cp.profile_id, cp.title, cp.links, cp.embedding
+          SELECT cp.id, cp.user_id, cp.title, cp.links, cp.embedding
           FROM ${patents} cp
-          WHERE cp.profile_id <> ${viewerId}
+          WHERE cp.user_id <> ${viewerProfile.userId}
             AND cp.embedding IS NOT NULL
         ),
         patent_pair AS (
@@ -121,7 +130,7 @@ export const patentsRouter = createTRPCRouter({
                  MAX(1 - (cp.embedding <=> vp.embedding)) AS score
           FROM candidate_patents cp
           JOIN ${patents} vp
-            ON vp.profile_id = ${viewerId}
+            ON vp.user_id = ${viewerProfile.userId}
            AND vp.embedding IS NOT NULL
           GROUP BY cp.id
         ),
@@ -144,7 +153,8 @@ export const patentsRouter = createTRPCRouter({
             COALESCE(MAX(lf.score), -1)
           ) AS similarity
         FROM candidate_patents cp
-        JOIN ${userSearchProfile} p ON p.id = cp.profile_id
+        JOIN ${userSearchProfile} p ON p.user_id = cp.user_id
+        JOIN ${users} u ON u.id = cp.user_id
         LEFT JOIN patent_pair pp ON pp.patent_id = cp.id
         LEFT JOIN looking_for_match lf ON lf.patent_id = cp.id
         GROUP BY cp.links

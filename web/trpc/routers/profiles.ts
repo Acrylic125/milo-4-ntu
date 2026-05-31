@@ -4,24 +4,24 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { patents, userSearchProfile } from "@/db/schema";
+import { patents, userSearchProfile, users } from "@/db/schema";
 import { getCurrentProfileIdForUser } from "@/lib/current-profile";
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
 
 const profileColumns = {
   id: userSearchProfile.id,
-  name: userSearchProfile.name,
-  email: userSearchProfile.email,
-  contact: userSearchProfile.contact,
+  userId: userSearchProfile.userId,
+  name: users.name,
+  email: users.email,
   role: userSearchProfile.role,
   tags: userSearchProfile.tags,
+  lookingFor: userSearchProfile.lookingFor,
 } as const;
 
 type RecommendationRow = {
   id: string;
   name: string;
   email: string;
-  contact: string;
   role: "student" | "researcher";
   tags: string[] | null;
   similarity: string | number;
@@ -35,7 +35,8 @@ export const profilesRouter = createTRPCRouter({
     return db
       .select(profileColumns)
       .from(userSearchProfile)
-      .orderBy(userSearchProfile.name);
+      .innerJoin(users, eq(userSearchProfile.userId, users.id))
+      .orderBy(users.name);
   }),
 
   current: publicProcedure.query(async ({ ctx }) => {
@@ -44,6 +45,7 @@ export const profilesRouter = createTRPCRouter({
     const [row] = await db
       .select(profileColumns)
       .from(userSearchProfile)
+      .innerJoin(users, eq(userSearchProfile.userId, users.id))
       .where(eq(userSearchProfile.id, id))
       .limit(1);
     return row ?? null;
@@ -81,10 +83,17 @@ export const profilesRouter = createTRPCRouter({
       if (!viewerId) return [];
 
       const rows = await db.execute<RecommendationRow>(sql`
-        WITH candidate_patents AS (
-          SELECT cp.id, cp.profile_id, cp.embedding
+        WITH viewer AS (
+          SELECT user_id, looking_for_embedding
+          FROM ${userSearchProfile}
+          WHERE id = ${viewerId}
+        ),
+        candidate_patents AS (
+          SELECT cp.id, usp.id AS profile_id, cp.user_id, cp.embedding
           FROM ${patents} cp
-          WHERE cp.profile_id <> ${viewerId}
+          JOIN ${userSearchProfile} usp ON usp.user_id = cp.user_id
+          CROSS JOIN viewer v
+          WHERE cp.user_id <> v.user_id
             AND cp.embedding IS NOT NULL
         ),
         patent_pair AS (
@@ -92,7 +101,7 @@ export const profilesRouter = createTRPCRouter({
                  MAX(1 - (cp.embedding <=> vp.embedding)) AS score
           FROM candidate_patents cp
           JOIN ${patents} vp
-            ON vp.profile_id = ${viewerId}
+            ON vp.user_id = (SELECT user_id FROM viewer)
            AND vp.embedding IS NOT NULL
           GROUP BY cp.profile_id
         ),
@@ -100,9 +109,8 @@ export const profilesRouter = createTRPCRouter({
           SELECT cp.profile_id,
                  MAX(1 - (cp.embedding <=> v.looking_for_embedding)) AS score
           FROM candidate_patents cp
-          JOIN ${userSearchProfile} v
-            ON v.id = ${viewerId}
-           AND v.looking_for_embedding IS NOT NULL
+          CROSS JOIN viewer v
+          WHERE v.looking_for_embedding IS NOT NULL
           GROUP BY cp.profile_id
         ),
         patent_counts AS (
@@ -112,9 +120,8 @@ export const profilesRouter = createTRPCRouter({
         )
         SELECT
           p.id,
-          p.name,
-          p.email,
-          p.contact,
+          u.name,
+          u.email,
           p.role,
           p.tags,
           pp.score AS patent_match,
@@ -125,6 +132,7 @@ export const profilesRouter = createTRPCRouter({
           ) AS similarity,
           COALESCE(pc.patent_count, 0) AS patent_count
         FROM ${userSearchProfile} p
+        JOIN ${users} u ON u.id = p.user_id
         INNER JOIN patent_counts pc ON pc.profile_id = p.id
         LEFT JOIN patent_pair pp ON pp.profile_id = p.id
         LEFT JOIN looking_for_match lf ON lf.profile_id = p.id
@@ -140,7 +148,6 @@ export const profilesRouter = createTRPCRouter({
         id: row.id,
         name: row.name,
         email: row.email,
-        contact: row.contact,
         role: row.role,
         tags: row.tags ?? [],
         similarity: Number(row.similarity),

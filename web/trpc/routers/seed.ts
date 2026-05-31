@@ -1,10 +1,11 @@
 import "server-only";
 
-import { eq, inArray } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { inArray, like } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { patents, userSearchProfile } from "@/db/schema";
+import { patents, userSearchProfile, users } from "@/db/schema";
 import { embedTechOffer } from "@/lib/embedding";
 import { collectAllListingUrls } from "@/lib/scrape-ntu-listing";
 import {
@@ -13,8 +14,7 @@ import {
 } from "@/lib/scrape-ntu-tech";
 import { createTRPCRouter, publicProcedure } from "@/trpc/init";
 
-const SEED_EMAIL_DOMAIN = "ntu-tech-portal.seed";
-const SEED_CONTACT = "Listed on NTU Tech Portal";
+const SEED_EMAIL_DOMAIN = "fake-ntu.edu.sg";
 const FETCH_DELAY_MS = 150;
 
 const runInput = z
@@ -46,6 +46,10 @@ function inventorEmail(name: string): string {
   return `${slug}@${SEED_EMAIL_DOMAIN}`;
 }
 
+function createUserId(): string {
+  return crypto.randomUUID();
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -61,6 +65,47 @@ type InventorBucket = {
   email: string;
   patents: SeedPatent[];
 };
+
+function describeError(err: unknown): string {
+  if (typeof err === "object" && err !== null) {
+    const cause = Reflect.get(err, "cause");
+    if (cause && cause !== err) {
+      const causeMessage = describeError(cause);
+      if (causeMessage && causeMessage !== "[object Object]") {
+        return causeMessage;
+      }
+    }
+  }
+
+  if (err instanceof Error) {
+    return err.message;
+  }
+
+  if (typeof err === "object" && err !== null) {
+    const message = Reflect.get(err, "message");
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+
+    const detail = Reflect.get(err, "detail");
+    if (typeof detail === "string" && detail.trim().length > 0) {
+      return detail;
+    }
+
+    const constraint = Reflect.get(err, "constraint");
+    if (typeof constraint === "string" && constraint.trim().length > 0) {
+      return `Constraint violation: ${constraint}`;
+    }
+
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+
+  return String(err);
+}
 
 async function safeEmbed(offer: ScrapedTechOffer): Promise<number[] | null> {
   try {
@@ -86,197 +131,249 @@ export const seedRouter = createTRPCRouter({
       const startedAt = Date.now();
       console.log("[seed] starting NTU tech-portal seed run");
 
-      const listing = await collectAllListingUrls(
-        ({ page, totalPages, pageItems, totalCollected }) => {
-          console.log(
-            `[seed] listing page ${page}/${totalPages}: +${pageItems} new, ${totalCollected} total`
-          );
-        }
-      );
-
-      console.log(`[seed] consolidated ${listing.length} detail URLs`);
-
-      const targets =
-        input?.maxItems != null ? listing.slice(0, input.maxItems) : listing;
-      if (targets.length !== listing.length) {
-        console.log(
-          `[seed] limiting to first ${targets.length} URLs (maxItems=${input?.maxItems})`
+      try {
+        const listing = await collectAllListingUrls(
+          ({ page, totalPages, pageItems, totalCollected }) => {
+            console.log(
+              `[seed] listing page ${page}/${totalPages}: +${pageItems} new, ${totalCollected} total`
+            );
+          }
         );
-      }
 
-      const inventorsByEmail = new Map<string, InventorBucket>();
-      let scrapedDetails = 0;
-      let skipped = 0;
+        console.log(`[seed] consolidated ${listing.length} detail URLs`);
 
-      for (let i = 0; i < targets.length; i += 1) {
-        const { url } = targets[i]!;
-        const label = `[seed] (${i + 1}/${targets.length}) ${url}`;
-        try {
-          const offer = await scrapeNtuTechOffer(url);
-          scrapedDetails += 1;
-
-          if (offer.inventors.length === 0) {
-            skipped += 1;
-            console.log(`${label} — no inventors, skipping`);
-            await sleep(FETCH_DELAY_MS);
-            continue;
-          }
-
-          const embedding = await safeEmbed(offer);
-          const patent: SeedPatent = {
-            url: offer.url,
-            title: offer.title,
-            embedding,
-          };
-
-          for (const name of offer.inventors) {
-            const email = inventorEmail(name);
-            const bucket = inventorsByEmail.get(email);
-            if (bucket) {
-              bucket.patents.push(patent);
-            } else {
-              inventorsByEmail.set(email, {
-                name,
-                email,
-                patents: [patent],
-              });
-            }
-          }
-
+        const targets =
+          input?.maxItems != null ? listing.slice(0, input.maxItems) : listing;
+        if (targets.length !== listing.length) {
           console.log(
-            `${label} — inventors: ${offer.inventors.join(", ")} (${
-              embedding ? "embedded" : "no embedding"
-            })`
+            `[seed] limiting to first ${targets.length} URLs (maxItems=${input?.maxItems})`
           );
-        } catch (err) {
-          skipped += 1;
-          const message = err instanceof Error ? err.message : String(err);
-          console.warn(`${label} — scrape failed: ${message}`);
         }
 
-        await sleep(FETCH_DELAY_MS);
-      }
+        const inventorsByEmail = new Map<string, InventorBucket>();
+        let scrapedDetails = 0;
+        let skipped = 0;
 
-      console.log(
-        `[seed] scraped ${scrapedDetails} details, ${inventorsByEmail.size} unique inventors`
-      );
+        for (let i = 0; i < targets.length; i += 1) {
+          const { url } = targets[i]!;
+          const label = `[seed] (${i + 1}/${targets.length}) ${url}`;
+          try {
+            const offer = await scrapeNtuTechOffer(url);
+            scrapedDetails += 1;
 
-      // Re-use existing profiles when their seed email already exists so the
-      // job is idempotent. We look up in bulk to avoid N+1 round-trips.
-      const emails = Array.from(inventorsByEmail.keys());
-      const existing =
-        emails.length === 0
-          ? []
-          : await db
-              .select({
-                id: userSearchProfile.id,
-                email: userSearchProfile.email,
-              })
-              .from(userSearchProfile)
-              .where(inArray(userSearchProfile.email, emails));
+            if (offer.inventors.length === 0) {
+              skipped += 1;
+              console.log(`${label} — no inventors, skipping`);
+              await sleep(FETCH_DELAY_MS);
+              continue;
+            }
 
-      const profileIdByEmail = new Map(
-        existing.map((row) => [row.email, row.id])
-      );
+            const embedding = await safeEmbed(offer);
+            const patent: SeedPatent = {
+              url: offer.url,
+              title: offer.title,
+              embedding,
+            };
 
-      const toCreate = Array.from(inventorsByEmail.values()).filter(
-        (bucket) => !profileIdByEmail.has(bucket.email)
-      );
+            for (const name of offer.inventors) {
+              const email = inventorEmail(name);
+              const bucket = inventorsByEmail.get(email);
+              if (bucket) {
+                bucket.patents.push(patent);
+              } else {
+                inventorsByEmail.set(email, {
+                  name,
+                  email,
+                  patents: [patent],
+                });
+              }
+            }
 
-      let profilesCreated = 0;
-      if (toCreate.length > 0) {
-        const inserted = await db
-          .insert(userSearchProfile)
-          .values(
-            toCreate.map((bucket) => ({
-              name: bucket.name,
-              email: bucket.email,
-              contact: SEED_CONTACT,
-              role: "researcher" as const,
-            }))
-          )
-          .returning({
-            id: userSearchProfile.id,
-            email: userSearchProfile.email,
-          });
+            console.log(
+              `${label} — inventors: ${offer.inventors.join(", ")} (${
+                embedding ? "embedded" : "no embedding"
+              })`
+            );
+          } catch (err) {
+            skipped += 1;
+            console.warn(`${label} — scrape failed: ${describeError(err)}`);
+          }
 
-        for (const row of inserted) {
-          profileIdByEmail.set(row.email, row.id);
+          await sleep(FETCH_DELAY_MS);
         }
-        profilesCreated = inserted.length;
-        console.log(`[seed] created ${profilesCreated} new inventor profiles`);
-      } else {
-        console.log("[seed] no new profiles to create");
+
+        console.log(
+          `[seed] scraped ${scrapedDetails} details, ${inventorsByEmail.size} unique inventors`
+        );
+
+        const emails = Array.from(inventorsByEmail.keys());
+        const { profilesCreated, patentsInserted } = await db.transaction(
+          async (tx) => {
+            const existingUsers =
+              emails.length === 0
+                ? []
+                : await tx
+                    .select({
+                      id: users.id,
+                      email: users.email,
+                    })
+                    .from(users)
+                    .where(inArray(users.email, emails));
+
+            const userIdByEmail = new Map(
+              existingUsers.map((row) => [row.email, row.id])
+            );
+
+            const usersToCreate = Array.from(inventorsByEmail.values()).filter(
+              (bucket) => !userIdByEmail.has(bucket.email)
+            );
+
+            if (usersToCreate.length > 0) {
+              const insertedUsers = await tx
+                .insert(users)
+                .values(
+                  usersToCreate.map((bucket) => ({
+                    id: createUserId(),
+                    name: bucket.name,
+                    email: bucket.email,
+                  }))
+                )
+                .returning({ id: users.id, email: users.email });
+
+              for (const row of insertedUsers) {
+                userIdByEmail.set(row.email, row.id);
+              }
+              console.log(`[seed] created ${insertedUsers.length} seed users`);
+            } else {
+              console.log("[seed] no new users to create");
+            }
+
+            const userIds = Array.from(userIdByEmail.values());
+            const existingProfiles =
+              userIds.length === 0
+                ? []
+                : await tx
+                    .select({
+                      id: userSearchProfile.id,
+                      userId: userSearchProfile.userId,
+                    })
+                    .from(userSearchProfile)
+                    .where(inArray(userSearchProfile.userId, userIds));
+
+            const profileIdByUserId = new Map(
+              existingProfiles.map((row) => [row.userId, row.id])
+            );
+
+            const profilesToCreate = Array.from(
+              inventorsByEmail.values()
+            ).filter((bucket) => {
+              const userId = userIdByEmail.get(bucket.email);
+              return userId != null && !profileIdByUserId.has(userId);
+            });
+
+            let profilesCreated = 0;
+            if (profilesToCreate.length > 0) {
+              const insertedProfiles = await tx
+                .insert(userSearchProfile)
+                .values(
+                  profilesToCreate.map((bucket) => ({
+                    userId: userIdByEmail.get(bucket.email)!,
+                    role: "researcher" as const,
+                  }))
+                )
+                .returning({
+                  id: userSearchProfile.id,
+                  userId: userSearchProfile.userId,
+                });
+
+              for (const row of insertedProfiles) {
+                if (row.userId) {
+                  profileIdByUserId.set(row.userId, row.id);
+                }
+              }
+              profilesCreated = insertedProfiles.length;
+              console.log(
+                `[seed] created ${profilesCreated} new inventor profiles`
+              );
+            } else {
+              console.log("[seed] no new profiles to create");
+            }
+
+            const existingPatents =
+              userIds.length === 0
+                ? []
+                : await tx
+                    .select({
+                      userId: patents.userId,
+                      link: patents.links,
+                    })
+                    .from(patents)
+                    .where(inArray(patents.userId, userIds));
+
+            const existingKey = new Set(
+              existingPatents.map((row) => `${row.userId}::${row.link}`)
+            );
+
+            type PatentInsert = typeof patents.$inferInsert;
+            const patentRows: PatentInsert[] = [];
+
+            for (const bucket of inventorsByEmail.values()) {
+              const userId = userIdByEmail.get(bucket.email);
+              if (!userId) continue;
+
+              const seenInRun = new Set<string>();
+              for (const patent of bucket.patents) {
+                const key = `${userId}::${patent.url}`;
+                if (seenInRun.has(key) || existingKey.has(key)) continue;
+                seenInRun.add(key);
+                patentRows.push({
+                  userId,
+                  title: patent.title,
+                  links: patent.url,
+                  embedding: patent.embedding ?? undefined,
+                });
+              }
+            }
+
+            let patentsInserted = 0;
+            if (patentRows.length > 0) {
+              const CHUNK = 100;
+              for (let i = 0; i < patentRows.length; i += CHUNK) {
+                const chunk = patentRows.slice(i, i + CHUNK);
+                await tx.insert(patents).values(chunk);
+                patentsInserted += chunk.length;
+              }
+              console.log(`[seed] inserted ${patentsInserted} patent rows`);
+            } else {
+              console.log("[seed] no new patent rows to insert");
+            }
+
+            return { profilesCreated, patentsInserted };
+          }
+        );
+
+        const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+        console.log(
+          `[seed] done in ${elapsed}s — profiles created: ${profilesCreated}, patents inserted: ${patentsInserted}`
+        );
+
+        return {
+          totalListed: listing.length,
+          scrapedDetails,
+          inventorsFound: inventorsByEmail.size,
+          profilesCreated,
+          patentsInserted,
+          skipped,
+        };
+      } catch (err) {
+        const message = describeError(err);
+        console.error("[seed] run failed", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Seed failed: ${message}`,
+          cause: err,
+        });
       }
-
-      // De-dupe patents per profile against what's already stored before we
-      // insert. `patents.links` holds a single URL per row.
-      const profileIds = Array.from(profileIdByEmail.values());
-      const existingPatents =
-        profileIds.length === 0
-          ? []
-          : await db
-              .select({
-                profileId: patents.profileId,
-                link: patents.links,
-              })
-              .from(patents)
-              .where(inArray(patents.profileId, profileIds));
-
-      const existingKey = new Set(
-        existingPatents.map((row) => `${row.profileId}::${row.link}`)
-      );
-
-      type PatentInsert = typeof patents.$inferInsert;
-      const patentRows: PatentInsert[] = [];
-
-      for (const bucket of inventorsByEmail.values()) {
-        const profileId = profileIdByEmail.get(bucket.email);
-        if (!profileId) continue;
-
-        // Within this run, an inventor can show up on multiple listings — we
-        // de-dupe by URL there too.
-        const seenInRun = new Set<string>();
-        for (const patent of bucket.patents) {
-          const key = `${profileId}::${patent.url}`;
-          if (seenInRun.has(key) || existingKey.has(key)) continue;
-          seenInRun.add(key);
-          patentRows.push({
-            profileId,
-            title: patent.title,
-            links: patent.url,
-            embedding: patent.embedding ?? undefined,
-          });
-        }
-      }
-
-      let patentsInserted = 0;
-      if (patentRows.length > 0) {
-        // Insert in chunks to keep the SQL payload reasonable.
-        const CHUNK = 100;
-        for (let i = 0; i < patentRows.length; i += CHUNK) {
-          const chunk = patentRows.slice(i, i + CHUNK);
-          await db.insert(patents).values(chunk);
-          patentsInserted += chunk.length;
-        }
-        console.log(`[seed] inserted ${patentsInserted} patent rows`);
-      } else {
-        console.log("[seed] no new patent rows to insert");
-      }
-
-      const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-      console.log(
-        `[seed] done in ${elapsed}s — profiles created: ${profilesCreated}, patents inserted: ${patentsInserted}`
-      );
-
-      return {
-        totalListed: listing.length,
-        scrapedDetails,
-        inventorsFound: inventorsByEmail.size,
-        profilesCreated,
-        patentsInserted,
-        skipped,
-      };
     }),
 
   /**
@@ -284,20 +381,28 @@ export const seedRouter = createTRPCRouter({
    * patents currently look seed-sourced (i.e. have the seed email domain).
    */
   status: publicProcedure.query(async () => {
-    const seedProfiles = await db
-      .select({ id: userSearchProfile.id })
-      .from(userSearchProfile)
-      .where(eq(userSearchProfile.contact, SEED_CONTACT));
+    const seedUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(like(users.email, `%@${SEED_EMAIL_DOMAIN}`));
 
-    const profileIds = seedProfiles.map((row) => row.id);
+    const userIds = seedUsers.map((row) => row.id);
+    const seedProfiles =
+      userIds.length === 0
+        ? []
+        : await db
+            .select({ id: userSearchProfile.id })
+            .from(userSearchProfile)
+            .where(inArray(userSearchProfile.userId, userIds));
+
     const patentCount =
-      profileIds.length === 0
+      userIds.length === 0
         ? 0
         : (
             await db
               .select({ id: patents.id })
               .from(patents)
-              .where(inArray(patents.profileId, profileIds))
+              .where(inArray(patents.userId, userIds))
           ).length;
 
     return {

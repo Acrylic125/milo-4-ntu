@@ -21,7 +21,9 @@ function backendUrl(): string {
   return process.env.EMBEDDING_BACKEND_URL ?? DEFAULT_BACKEND_URL;
 }
 
-export async function embedTechOffer(input: EmbedInput): Promise<EmbedResponse> {
+export async function embedTechOffer(
+  input: EmbedInput
+): Promise<EmbedResponse> {
   const res = await fetch(`${backendUrl()}/embed`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

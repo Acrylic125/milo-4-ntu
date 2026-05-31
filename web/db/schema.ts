@@ -7,6 +7,7 @@ import {
   text,
   timestamp,
   uuid,
+  uniqueIndex,
   vector,
 } from "drizzle-orm/pg-core";
 
@@ -156,7 +157,6 @@ export const patents = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     userId: text("user_id")
-      .unique()
       .references(() => users.id, {
         onDelete: "cascade",
       }),
@@ -172,6 +172,8 @@ export const patents = pgTable(
       .notNull(),
   },
   (table) => [
+    index("patents_user_id_idx").on(table.userId),
+    uniqueIndex("patents_user_id_links_unique").on(table.userId, table.links),
     // HNSW + cosine distance for nearest-neighbour search on the combined embedding.
     index("profiles_embedding_idx").using(
       "hnsw",
