@@ -1,12 +1,15 @@
 import "server-only";
 
 import { eq, sql } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { db } from "@/db";
 import { patents, userSearchProfile, users } from "@/db/schema";
 import { getCurrentProfileIdForUser } from "@/lib/current-profile";
-import { createTRPCRouter, publicProcedure } from "@/trpc/init";
+import { embedTechOffer } from "@/lib/embedding";
+import { scrapeNtuTechOffer } from "@/lib/scrape-ntu-tech";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/trpc/init";
 
 const profileColumns = {
   id: userSearchProfile.id,
@@ -29,6 +32,42 @@ type RecommendationRow = {
   looking_for_match: string | number | null;
   patent_count: string | number;
 };
+
+const NTU_TECH_OFFER_PREFIX =
+  "https://www.ntu.edu.sg/innovates/tech-portal/tech-offers/detail";
+
+const updateOwnProfileSchema = z.object({
+  profileId: z.string().uuid(),
+  name: z.string().trim().min(1),
+  role: z.enum(["student", "researcher"]),
+  patentLinks: z
+    .array(
+      z
+        .url()
+        .trim()
+        .refine(
+          (url) => url.startsWith(NTU_TECH_OFFER_PREFIX),
+          `Each link must start with ${NTU_TECH_OFFER_PREFIX}`
+        )
+    )
+    .superRefine((links, ctx) => {
+      const firstSeen = new Map<string, number>();
+      links.forEach((link, index) => {
+        const normalized = link.toLowerCase();
+        const firstIndex = firstSeen.get(normalized);
+        if (firstIndex == null) {
+          firstSeen.set(normalized, index);
+          return;
+        }
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index],
+          message: `Duplicate link (same as link #${firstIndex + 1})`,
+        });
+      });
+    })
+    .optional(),
+});
 
 export const profilesRouter = createTRPCRouter({
   list: publicProcedure.query(async () => {
@@ -156,5 +195,69 @@ export const profilesRouter = createTRPCRouter({
           row.looking_for_match == null ? null : Number(row.looking_for_match),
         patentCount: Number(row.patent_count),
       }));
+    }),
+  updateOwn: protectedProcedure
+    .input(updateOwnProfileSchema)
+    .mutation(async ({ ctx, input }) => {
+      const currentProfileId = await getCurrentProfileIdForUser(ctx.session.user);
+      if (!currentProfileId || currentProfileId !== input.profileId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only edit your own profile.",
+        });
+      }
+
+      const patentLinks = (input.patentLinks ?? []).map((link) => link.trim());
+
+      const scrapedPatents =
+        input.role === "researcher"
+          ? await Promise.all(
+              patentLinks.map(async (url) => {
+                const offer = await scrapeNtuTechOffer(url);
+                const embedded = await embedTechOffer({
+                  synopsis: offer.synopsis,
+                  opportunity: offer.opportunity,
+                  technology: offer.technology,
+                  applications: offer.applications,
+                });
+                return { offer, embedding: embedded.embedding };
+              })
+            )
+          : [];
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(users)
+          .set({
+            name: input.name,
+          })
+          .where(eq(users.id, ctx.session.user.id));
+
+        await tx
+          .update(userSearchProfile)
+          .set({
+            role: input.role,
+          })
+          .where(eq(userSearchProfile.id, input.profileId));
+
+        if (input.role === "researcher") {
+          await tx.delete(patents).where(eq(patents.userId, ctx.session.user.id));
+          if (scrapedPatents.length > 0) {
+            await tx.insert(patents).values(
+              scrapedPatents.map(({ offer, embedding }) => ({
+                userId: ctx.session.user.id,
+                title: offer.title,
+                links: offer.url,
+                embedding,
+              }))
+            );
+          }
+        }
+      });
+
+      return {
+        profileId: input.profileId,
+        patentCount: input.role === "researcher" ? scrapedPatents.length : null,
+      };
     }),
 });

@@ -60,6 +60,13 @@ async function RecommendedPatents({
         OR u.name ILIKE ${`%${trimmedSearch}%`}
       )`
     : sql``;
+  const managedPatentFilter = trimmedSearch
+    ? sql``
+    : sql`AND cp.links NOT IN (
+        SELECT vp.links
+        FROM ${patents} vp
+        WHERE vp.user_id = ${viewerProfile.userId}
+      )`;
 
   const rows = await db.execute<PatentResultRow>(sql`
     WITH candidate_patents AS (
@@ -67,6 +74,7 @@ async function RecommendedPatents({
       FROM ${patents} cp
       WHERE cp.user_id <> ${viewerProfile.userId}
         AND cp.embedding IS NOT NULL
+        ${managedPatentFilter}
     ),
     patent_pair AS (
       SELECT cp.id AS patent_id,
