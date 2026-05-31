@@ -7,55 +7,46 @@ import { db } from "@/db";
 import { patents, userSearchProfile } from "@/db/schema";
 import { getCurrentProfileIdForUser } from "@/lib/current-profile";
 import { embedTechOffer, embedText } from "@/lib/embedding";
-import { NTU_TECH_OFFER_PREFIX } from "@/lib/onboard-schema";
 import { scrapeNtuTechOffer } from "@/lib/scrape-ntu-tech";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
-
-const ntuTechLink = z
-  .url("Each link must be a valid URL")
-  .refine(
-    (url) => url.startsWith(NTU_TECH_OFFER_PREFIX),
-    `Each link must start with ${NTU_TECH_OFFER_PREFIX}`
-  );
-
-const baseInput = {
-  email: z.email(),
-  contact: z.string().trim().min(2),
-};
-
-const studentInput = z.object({
-  ...baseInput,
-  role: z.literal("student"),
-  interestedIn: z
-    .string()
-    .trim()
-    .min(20, "Tell us a bit more about what you're interested in"),
-});
-
-const researcherInput = z.object({
-  ...baseInput,
-  role: z.literal("researcher"),
-  links: z.array(ntuTechLink).min(1, "Add at least one NTU tech-portal link"),
-  problemSolving: z
-    .string()
-    .trim()
-    .min(20, "Tell us a bit more about the problem you are trying to solve"),
-});
-
-const submitInput = z.discriminatedUnion("role", [
-  studentInput,
-  researcherInput,
-]);
-
-const submitOutput = z.object({
-  profileId: z.string().uuid(),
-  patentCount: z.number().int().nonnegative(),
-});
+import { OnboardSchema } from "@/components/onboard-form-types";
 
 export const onboardRouter = createTRPCRouter({
+  verifyUrl: protectedProcedure
+    .input(
+      z.object({
+        url: z.string().trim().url(),
+      })
+    )
+    .query(async ({ input }) => {
+      try {
+        let response = await fetch(input.url, {
+          method: "HEAD",
+          redirect: "follow",
+          cache: "no-store",
+        });
+
+        if (response.status === 405) {
+          response = await fetch(input.url, {
+            method: "GET",
+            redirect: "follow",
+            cache: "no-store",
+          });
+        }
+
+        return {
+          exists: response.ok,
+          status: response.status,
+        };
+      } catch {
+        return {
+          exists: false,
+          status: null,
+        };
+      }
+    }),
   submit: protectedProcedure
-    .input(submitInput)
-    .output(submitOutput)
+    .input(OnboardSchema)
     .mutation(async ({ ctx, input }) => {
       const existingProfileId = await getCurrentProfileIdForUser(
         ctx.session.user
@@ -70,7 +61,7 @@ export const onboardRouter = createTRPCRouter({
       const lookingFor =
         input.role === "researcher" ? input.problemSolving : input.interestedIn;
 
-      const researcherLinks = input.role === "researcher" ? input.links : [];
+      const researcherLinks = input.role === "researcher" ? input.myWork : [];
 
       const [scraped, lookingForEmbedding] = await Promise.all([
         Promise.all(

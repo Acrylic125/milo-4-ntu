@@ -1,7 +1,22 @@
 import { GetStarted } from "@/components/get-started";
+import { HomePage } from "@/components/home-page";
+import { getCurrentProfileIdForUser } from "@/lib/current-profile";
+import { getSession } from "@/lib/session";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getSession();
+  const currentProfileId = await getCurrentProfileIdForUser(session?.user);
+
+  if (session?.user && !currentProfileId) {
+    redirect("/onboard");
+  }
+
+  if (currentProfileId) {
+    return <HomePage />;
+  }
+
   return (
     <div className="flex flex-col items-center w-full">
       <div className="flex flex-col lg:flex-row w-full max-w-ui lg:h-[calc(100svh-3.5rem)] py-8 gap-8">
@@ -34,5 +49,4 @@ export default function Home() {
       </div>
     </div>
   );
-  // return <HomePage />;
 }

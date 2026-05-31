@@ -10,6 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.4.0",
     "@tanstack/react-query": "^5.100.14",
     "@thallesp/nestjs-better-auth": "^2.6.0",
     "@trpc/client": "^11.17.0",
@@ -22,6 +23,7 @@
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.16.0",
+    "motion": "^12.40.0",
     "next": "16.2.6",
     "next-themes": "^0.4.6",
     "postgres": "^3.4.9",
