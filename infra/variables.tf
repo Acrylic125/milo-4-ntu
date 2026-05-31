@@ -95,3 +95,9 @@ variable "service_discovery_namespace" {
   type        = string
   default     = "milo.local"
 }
+
+variable "web_cloudflared_token" {
+  description = "Cloudflare tunnel token for the cloudflared sidecar attached to the web service."
+  type        = string
+  sensitive   = true
+}

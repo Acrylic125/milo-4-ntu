@@ -1,9 +1,12 @@
 locals {
-  name_prefix    = "${var.environment}-milo-web"
-  service_name   = "${local.name_prefix}-service"
-  task_family    = "${local.name_prefix}-task"
-  log_group_name = "/ecs/${local.name_prefix}"
-  container_name = "web"
+  name_prefix                = "${var.environment}-milo-web"
+  service_name               = "${local.name_prefix}-service"
+  task_family                = "${local.name_prefix}-task"
+  log_group_name             = "/ecs/${local.name_prefix}"
+  container_name             = "web"
+  cloudflared_container_name = "cloudflared"
+  cloudflared_image          = "cloudflare/cloudflared:latest"
+  cloudflared_token_secret   = "${var.environment}/milo/web/cloudflared-token"
 }
 
 data "aws_iam_policy_document" "task_assume_role" {
@@ -54,8 +57,11 @@ resource "aws_iam_role_policy_attachment" "task_execution" {
 
 data "aws_iam_policy_document" "secret_read" {
   statement {
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [var.db_connection_string_secret_arn]
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      var.db_connection_string_secret_arn,
+      aws_secretsmanager_secret.cloudflared_token.arn,
+    ]
   }
 }
 
@@ -77,6 +83,20 @@ resource "aws_cloudwatch_log_group" "this" {
   tags = {
     Name = local.log_group_name
   }
+}
+
+resource "aws_secretsmanager_secret" "cloudflared_token" {
+  name        = local.cloudflared_token_secret
+  description = "Cloudflare tunnel token for the ${local.name_prefix} cloudflared sidecar."
+
+  tags = {
+    Name = local.cloudflared_token_secret
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "cloudflared_token" {
+  secret_id     = aws_secretsmanager_secret.cloudflared_token.id
+  secret_string = var.cloudflared_tunnel_token
 }
 
 resource "aws_ecs_task_definition" "this" {
@@ -135,6 +155,26 @@ resource "aws_ecs_task_definition" "this" {
           awslogs-group         = aws_cloudwatch_log_group.this.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = local.container_name
+        }
+      }
+    },
+    {
+      name      = local.cloudflared_container_name
+      image     = local.cloudflared_image
+      essential = true
+      command   = ["tunnel", "--no-autoupdate", "run"]
+      secrets = [
+        {
+          name      = "TUNNEL_TOKEN"
+          valueFrom = aws_secretsmanager_secret.cloudflared_token.arn
+        },
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.this.name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = local.cloudflared_container_name
         }
       }
     }

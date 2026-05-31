@@ -83,3 +83,9 @@ variable "backend_url" {
   description = "Base URL of the backend embedding service, injected as EMBEDDING_BACKEND_URL."
   type        = string
 }
+
+variable "cloudflared_tunnel_token" {
+  description = "Cloudflare tunnel token used by the cloudflared sidecar."
+  type        = string
+  sensitive   = true
+}
