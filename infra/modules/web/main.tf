@@ -7,6 +7,7 @@ locals {
   cloudflared_container_name = "cloudflared"
   cloudflared_image          = "cloudflare/cloudflared:latest"
   cloudflared_token_secret   = "${var.environment}/milo/web/cloudflared-token"
+  azure_ad_secret_name       = "prd/milo/web/azure-ad-secret"
 }
 
 data "aws_iam_policy_document" "task_assume_role" {
@@ -61,6 +62,7 @@ data "aws_iam_policy_document" "secret_read" {
     resources = [
       var.db_connection_string_secret_arn,
       aws_secretsmanager_secret.cloudflared_token.arn,
+      aws_secretsmanager_secret.azure_ad_client_secret.arn,
     ]
   }
 }
@@ -97,6 +99,20 @@ resource "aws_secretsmanager_secret" "cloudflared_token" {
 resource "aws_secretsmanager_secret_version" "cloudflared_token" {
   secret_id     = aws_secretsmanager_secret.cloudflared_token.id
   secret_string = var.cloudflared_tunnel_token
+}
+
+resource "aws_secretsmanager_secret" "azure_ad_client_secret" {
+  name        = local.azure_ad_secret_name
+  description = "Azure AD client secret for the ${local.name_prefix} web container."
+
+  tags = {
+    Name = local.azure_ad_secret_name
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "azure_ad_client_secret" {
+  secret_id     = aws_secretsmanager_secret.azure_ad_client_secret.id
+  secret_string = var.microsoft_client_secret
 }
 
 resource "aws_ecs_task_definition" "this" {
@@ -142,11 +158,27 @@ resource "aws_ecs_task_definition" "this" {
           name  = "EMBEDDING_BACKEND_URL"
           value = var.backend_url
         },
+        {
+          name  = "MICROSOFT_CLIENT_ID"
+          value = "b99728a7-e0ad-48f5-86d6-24bd5e316fc4"
+        },
+        {
+          name  = "BETTER_AUTH_URL"
+          value = "https://milo.benapps.dev/"
+        },
       ]
       secrets = [
         {
           name      = "DATABASE_URL"
           valueFrom = var.db_connection_string_secret_arn
+        },
+        {
+          name      = "BETTER_AUTH_SECRET"
+          valueFrom = aws_secretsmanager_secret.cloudflared_token.arn
+        },
+        {
+          name      = "MICROSOFT_CLIENT_SECRET"
+          valueFrom = aws_secretsmanager_secret.azure_ad_client_secret.arn
         },
       ]
       logConfiguration = {

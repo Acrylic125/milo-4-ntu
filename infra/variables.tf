@@ -101,3 +101,9 @@ variable "web_cloudflared_token" {
   type        = string
   sensitive   = true
 }
+
+variable "microsoft_client_secret" {
+  description = "Azure AD client secret injected into the web container."
+  type        = string
+  sensitive   = true
+}

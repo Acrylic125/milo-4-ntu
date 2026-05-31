@@ -97,6 +97,7 @@ module "web" {
 
   db_connection_string_secret_arn = module.db.connection_string_secret_arn
   backend_url                     = local.backend_url
+  microsoft_client_secret         = var.microsoft_client_secret
 
   cloudflared_tunnel_token = var.web_cloudflared_token
 }
